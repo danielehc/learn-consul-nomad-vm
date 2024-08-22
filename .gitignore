@@ -1,0 +1,15 @@
+*/certs/*
+*.tfstate
+*.tfstate.backup
+*/*.env
+.vagrant/
+aws.env/us-east/.terraform/
+.terraform
+examples/
+.terraform.lock.hcl
+terraform.tfvars
+variables.hcl
+Vagrantfile
+ignore*
+nomad.token
+*.pem
