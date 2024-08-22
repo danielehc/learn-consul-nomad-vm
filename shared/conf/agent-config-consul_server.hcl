@@ -140,9 +140,3 @@ acl = {
   enable_token_replication = true
   down_policy = "extend-cache"
 }
-
-acl {
-  tokens {
-    initial_managment  = "_CONSUL_MANAGMENT_TOKEN"
-  }
-}

@@ -102,9 +102,7 @@ acl {
   enabled        = true
   default_policy = "deny"
   enable_token_persistence = true
-}
 
-acl {
   tokens {
     agent  = "_CONSUL_AGENT_TOKEN"
     default  = "_CONSUL_DEFAULT_TOKEN"

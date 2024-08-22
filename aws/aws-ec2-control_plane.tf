@@ -33,14 +33,22 @@ resource "aws_instance" "server" {
   }
 
   user_data = templatefile("${path.module}/../shared/data-scripts/user-data-server_new.sh", {
-    server_count              = var.server_count
-    region                    = var.region
-    cloud_env                 = "aws"
-    retry_join                = local.retry_join_consul
-    nomad_binary              = var.nomad_binary
-    nomad_consul_token_id     = random_uuid.nomad_id.result
-    nomad_consul_token_secret = random_uuid.nomad_token.result
+    domain                  = var.domain,
+    datacenter              = var.datacenter,
+    server_count            = "${var.server_count}",
+    consul_node_name        = "consul-server-${count.index}",
+    cloud_env               = "aws",
+    retry_join              = local.retry_join_consul,
+    consul_encryption_key   = random_id.consul_gossip_key.b64_std,
+    consul_management_token = random_uuid.consul_mgmt_token.result,
+    nomad_node_name         = "nomad-server-${count.index}",
+    nomad_encryption_key    = random_id.nomad_gossip_key.b64_std,
+    nomad_management_token = random_uuid.nomad_mgmt_token.result,
+    ca_certificate          = base64gzip("${tls_self_signed_cert.datacenter_ca.cert_pem}"),
+    agent_certificate       = base64gzip("${tls_locally_signed_cert.server_cert[count.index].cert_pem}"),
+    agent_key               = base64gzip("${tls_private_key.server_key[count.index].private_key_pem}")
   })
+
   iam_instance_profile = aws_iam_instance_profile.instance_profile.name
 
   metadata_options {

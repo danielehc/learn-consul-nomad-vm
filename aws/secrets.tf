@@ -95,9 +95,11 @@ resource "tls_cert_request" "server_csr" {
   dns_names = [
     "consul.${var.datacenter}.${var.domain}",
     "nomad.${var.datacenter}.${var.domain}",
+    "server.${var.datacenter}.${var.domain}",
     "server-${count.index}.${var.datacenter}.${var.domain}",
     "consul-server-${count.index}.${var.datacenter}.${var.domain}",
     "nomad-server-${count.index}.${var.datacenter}.${var.domain}",
+    "server.global.nomad",
     "localhost"
   ]
 
