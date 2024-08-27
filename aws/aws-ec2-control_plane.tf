@@ -49,6 +49,22 @@ resource "aws_instance" "server" {
     agent_key               = base64gzip("${tls_private_key.server_key[count.index].private_key_pem}")
   })
 
+  connection {
+    type        = "ssh"
+    user        = "ubuntu"
+    private_key = tls_private_key.vm_ssh_key.private_key_pem
+    host        = self.public_ip
+  }
+
+  # Waits for cloud-init to complete. Needed for ACL creation.
+  provisioner "remote-exec" {
+    inline = [
+      "echo 'Waiting for user data script to finish'",
+      "cloud-init status --wait > /dev/null"
+    ]
+  }
+
+
   iam_instance_profile = aws_iam_instance_profile.instance_profile.name
 
   metadata_options {

@@ -40,6 +40,16 @@ provider "consul" {
   scheme     = "https"
 }
 
-# provider "nomad" {
-
-# }
+provider "nomad" {
+  address     = "https://${aws_instance.server[0].public_ip}:4646"
+  region      = var.domain
+  secret_id   = random_uuid.nomad_mgmt_token.result
+  ca_pem      = tls_self_signed_cert.datacenter_ca.cert_pem
+  skip_verify = true
+  ignore_env_vars = {
+    "NOMAD_ADDR" : true,
+    "NOMAD_TOKEN" : true,
+    "NOMAD_CACERT" : true,
+    "NOMAD_TLS_SERVER_NAME" : true,
+  }
+}

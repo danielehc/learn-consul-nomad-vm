@@ -81,6 +81,14 @@ variable "server_count" {
   default     = "3"
 }
 
+# Number of externally accessible Consul and Nomad client instances to start
+# They will be used to deploy API Gateways and reverse proxies to access services 
+# in the Consul datacenter
+variable "public_client_count" {
+  description = "The number of clients to provision."
+  default     = "1"
+}
+
 # Number of Consul and Nomad client instances to start
 variable "client_count" {
   description = "The number of clients to provision."

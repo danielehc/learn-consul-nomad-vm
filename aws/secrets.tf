@@ -152,6 +152,7 @@ resource "tls_cert_request" "client_csr" {
     "client-${count.index}.${var.datacenter}.${var.domain}",
     "consul-client-${count.index}.${var.datacenter}.${var.domain}",
     "nomad-client-${count.index}.${var.datacenter}.${var.domain}",
+    "client.global.nomad",
     "localhost"
   ]
 
@@ -190,6 +191,78 @@ resource "random_uuid" "consul_mgmt_token" {
 resource "random_uuid" "nomad_mgmt_token" {
 }
 
+# Nomad token for UI access
+resource "nomad_acl_policy" "nomad-user-policy" {
+  name        = "nomad-user"
+  description = "Submit jobs to the environment."
+
+  rules_hcl = <<EOT
+agent { 
+    policy = "read"
+} 
+
+node { 
+    policy = "read" 
+} 
+
+namespace "*" { 
+    policy = "read" 
+    capabilities = ["submit-job", "dispatch-job", "read-logs", "read-fs", "alloc-exec"]
+}
+EOT
+}
+
+resource "nomad_acl_token" "nomad-user-token" {
+  name     = "nomad-user-token"
+  type     = "client"
+  policies = ["nomad-user"]
+  global   = true
+} 
+
+# Consul client agent token
+resource consul_acl_token "consul-client-agent-token" {
+  count   = var.client_count
+  description = "Consul client ${count.index} agent token"
+  templated_policies {
+      template_name = "builtin/node"
+      template_variables {
+        name = "consul-client-${count.index}"
+      }
+  }
+}
+
+data "consul_acl_token_secret_id" "consul-client-agent-token" {
+    count   = var.client_count
+    accessor_id = "${consul_acl_token.consul-client-agent-token[count.index].id}"
+}
+
+# Consul client default token
+resource consul_acl_token "consul-client-default-token" {
+  count   = var.client_count
+  description = "Consul client ${count.index} default token"
+  templated_policies {
+      template_name = "builtin/dns"
+  }
+}
+
+data "consul_acl_token_secret_id" "consul-client-default-token" {
+    count   = var.client_count
+    accessor_id = "${consul_acl_token.consul-client-default-token[count.index].id}"
+}
+
+# Nomad client Consul token
+resource consul_acl_token "nomad-client-consul-token" {
+  count   = var.client_count
+  description = "Nomad client ${count.index} Consul token"
+  templated_policies {
+      template_name = "builtin/nomad-client"
+  }
+}
+
+data "consul_acl_token_secret_id" "nomad-client-consul-token" {
+    count   = var.client_count
+    accessor_id = "${consul_acl_token.nomad-client-consul-token[count.index].id}"
+}
 
 #-------------------------------------------------------------------------------
 # Deprecated secrets

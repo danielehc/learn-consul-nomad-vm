@@ -10,6 +10,7 @@ resource "aws_instance" "client" {
   ami                    = var.ami
   instance_type          = var.client_instance_type
   key_name               = aws_key_pair.vm_ssh_key-pair.key_name
+  associate_public_ip_address = true
   vpc_security_group_ids = [
     # aws_security_group.consul_nomad_ui_ingress.id, 
     aws_security_group.ssh_ingress.id, 
@@ -40,12 +41,19 @@ resource "aws_instance" "client" {
   }
 
   user_data = templatefile("${path.module}/../shared/data-scripts/user-data-client_new.sh", {
-    region                    = var.region
-    cloud_env                 = "aws"
-    retry_join                = local.retry_join_consul
-    nomad_binary              = var.nomad_binary
-    nomad_consul_token_id     = random_uuid.nomad_id.result
-    nomad_consul_token_secret = random_uuid.nomad_token.result
+    domain                  = var.domain,
+    datacenter              = var.datacenter,
+    consul_node_name        = "consul-client-${count.index}",
+    cloud_env               = "aws",
+    retry_join              = local.retry_join_consul,
+    consul_encryption_key   = random_id.consul_gossip_key.b64_std,
+    consul_agent_token      = "${data.consul_acl_token_secret_id.consul-client-agent-token[count.index].secret_id}",
+    consul_default_token    = "${data.consul_acl_token_secret_id.consul-client-default-token[count.index].secret_id}",
+    nomad_node_name         = "nomad-client-${count.index}",
+    nomad_agent_token       = "${data.consul_acl_token_secret_id.nomad-client-consul-token[count.index].secret_id}",
+    ca_certificate          = base64gzip("${tls_self_signed_cert.datacenter_ca.cert_pem}"),
+    agent_certificate       = base64gzip("${tls_locally_signed_cert.client_cert[count.index].cert_pem}"),
+    agent_key               = base64gzip("${tls_private_key.client_key[count.index].private_key_pem}")
   })
 
   iam_instance_profile = aws_iam_instance_profile.instance_profile.name

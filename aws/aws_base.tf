@@ -68,19 +68,19 @@ resource "aws_security_group" "consul_nomad_ui_ingress" {
   }
 
   ## todo remove after migrating to TLS
-  ingress {
-    from_port       = 8500
-    to_port         = 8500
-    protocol        = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+  # ingress {
+  #   from_port       = 8500
+  #   to_port         = 8500
+  #   protocol        = "tcp"
+  #   cidr_blocks = ["0.0.0.0/0"]
+  # }
 
-  ingress {
-    from_port = 0
-    to_port   = 0
-    protocol  = "-1"
-    self      = true
-  }
+  # ingress {
+  #   from_port = 0
+  #   to_port   = 0
+  #   protocol  = "-1"
+  #   self      = true
+  # }
 
   egress {
     from_port   = 0
@@ -102,12 +102,12 @@ resource "aws_security_group" "ssh_ingress" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  ingress {
-    from_port = 0
-    to_port   = 0
-    protocol  = "-1"
-    self      = true
-  }
+  # ingress {
+  #   from_port = 0
+  #   to_port   = 0
+  #   protocol  = "-1"
+  #   self      = true
+  # }
 
   egress {
     from_port   = 0
@@ -140,12 +140,12 @@ resource "aws_security_group" "clients_ingress" {
   name   = "${local.name}-clients-ingress"
   vpc_id = module.vpc.vpc_id
 
-  ingress {
-    from_port = 0
-    to_port   = 0
-    protocol  = "-1"
-    self      = true
-  }
+  # ingress {
+  #   from_port = 0
+  #   to_port   = 0
+  #   protocol  = "-1"
+  #   self      = true
+  # }
 
   egress {
     from_port   = 0
@@ -157,13 +157,29 @@ resource "aws_security_group" "clients_ingress" {
   # Add application ingress rules here
   # These rules are applied only to the client nodes
 
-  # nginx example
-  # ingress {
-  #   from_port   = 80
-  #   to_port     = 80
-  #   protocol    = "tcp"
-  #   cidr_blocks = ["0.0.0.0/0"]
-  # }
+  # HTTP ingress
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # HTTPS ingress
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # HTTPS ingress
+  ingress {
+    from_port   = 8443
+    to_port     = 8443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 }
 
 

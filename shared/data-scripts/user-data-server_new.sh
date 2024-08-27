@@ -12,6 +12,8 @@ exec > >(sudo tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 
 # Paths for configuration files
 #-------------------------------------------------------------------------------
 
+echo "Setup configuration PATHS"
+
 CONFIG_DIR=/ops/shared/conf
 
 CONSUL_CONFIG_DIR=/etc/consul.d
@@ -23,6 +25,8 @@ HOME_DIR=ubuntu
 
 # Retrieve certificates
 #-------------------------------------------------------------------------------
+
+echo "Create TLS certificate files"
 
 echo "${ca_certificate}"    | base64 -d | zcat > /tmp/agent-ca.pem
 echo "${agent_certificate}" | base64 -d | zcat > /tmp/agent.pem
@@ -38,6 +42,8 @@ sudo cp /tmp/agent-key.pem $NOMAD_CONFIG_DIR/nomad-agent-key.pem
 
 # IP addresses
 #-------------------------------------------------------------------------------
+
+echo "Retrieve IP addresses"
 
 # Wait for network
 ## todo testi if this value is not too big
@@ -71,6 +77,8 @@ esac
 # Environment variables
 #-------------------------------------------------------------------------------
 
+echo "Setup Environment variables"
+
 # consul.hcl variables needed
 CONSUL_DATACENTER="${datacenter}"
 CONSUL_DOMAIN="${domain}"
@@ -92,6 +100,8 @@ NOMAD_MANAGEMENT_TOKEN="${nomad_management_token}"
 
 # Configure and start Consul
 #-------------------------------------------------------------------------------
+
+echo "Create Consul configuration files"
 
 # Copy template into Consul configuration directory
 sudo cp $CONFIG_DIR/agent-config-consul_server.hcl $CONSUL_CONFIG_DIR/consul.hcl
@@ -115,17 +125,36 @@ sudo cp $CONFIG_DIR/agent-config-consul_server_tokens_bootstrap.hcl $CONSUL_CONF
 sudo sed -i "s/_CONSUL_MANAGEMENT_TOKEN/$CONSUL_MANAGEMENT_TOKEN/g" $CONSUL_CONFIG_DIR/consul_tokens.hcl
 
 # Start Consul
+echo "Start Consul"
 sudo systemctl enable consul.service
 sudo systemctl start consul.service
+
+# curl http://localhost:8500/v1/status/leader
 
 ## todo instead of sleeping check on status https://developer.hashicorp.com/consul/api-docs/status
 sleep 30
 
+# curl http://localhost:8500/v1/status/leader
+
+## todo generate AGENT and DEFAULT tokens for Consul and remove the consul_tokens.hcl config file.
+echo "Generate ACL tokens for Consul servers"
+
+OUTPUT=$(CONSUL_HTTP_TOKEN=$CONSUL_MANAGEMENT_TOKEN consul acl token create -description="Server Agent token for $CONSUL_NODE_NAME " --format json -templated-policy="builtin/node" -var name:$CONSUL_NODE_NAME)
+CONSUL_SERVER_TOKEN=$(echo "$OUTPUT" | jq -r ".SecretID")
+CONSUL_HTTP_TOKEN=$CONSUL_MANAGEMENT_TOKEN consul acl set-agent-token agent $CONSUL_SERVER_TOKEN
+
+OUTPUT=$(CONSUL_HTTP_TOKEN=$CONSUL_MANAGEMENT_TOKEN consul acl token create -description="Server Default token for $CONSUL_NODE_NAME" --format json -templated-policy="builtin/dns")
+CONSUL_DNS_TOKEN=$(echo "$OUTPUT" | jq -r ".SecretID")
+CONSUL_HTTP_TOKEN=$CONSUL_MANAGEMENT_TOKEN consul acl set-agent-token default $CONSUL_DNS_TOKEN
+
+
 # Configure and start Nomad
 #-------------------------------------------------------------------------------
 
+echo "Create Nomad configuration files"
+
 # Create Nomad server token to interact with Consul
-OUTPUT=$(CONSUL_HTTP_TOKEN=$CONSUL_MANAGEMENT_TOKEN consul acl token create -description="Nomad server auto-join token" --format json -templated-policy="builtin/nomad-server")
+OUTPUT=$(CONSUL_HTTP_TOKEN=$CONSUL_MANAGEMENT_TOKEN consul acl token create -description="Nomad server auto-join token for $CONSUL_NODE_NAME" --format json -templated-policy="builtin/nomad-server")
 CONSUL_AGENT_TOKEN=$(echo "$OUTPUT" | jq -r ".SecretID")
 
 # Copy template into Nomad configuration directory
@@ -140,6 +169,8 @@ sudo sed -i "s#_NOMAD_ENCRYPTION_KEY#$NOMAD_ENCRYPTION_KEY#g" $NOMAD_CONFIG_DIR/
 sudo sed -i "s/_CONSUL_IP_ADDRESS/$CONSUL_BIND_ADDR/g" $NOMAD_CONFIG_DIR/nomad.hcl
 sudo sed -i "s/_CONSUL_AGENT_TOKEN/$CONSUL_AGENT_TOKEN/g" $NOMAD_CONFIG_DIR/nomad.hcl
 
+echo "Start Nomad"
+
 sudo systemctl enable nomad.service
 sudo systemctl start nomad.service
 
@@ -148,11 +179,14 @@ sleep 10
 
 # Configure consul-template
 #-------------------------------------------------------------------------------
+echo "Create consul-template configuration files"
 sudo cp $CONFIG_DIR/agent-config-consul_template.hcl $CONSULTEMPLATE_CONFIG_DIR/consul-template.hcl
 sudo cp $CONFIG_DIR/systemd-service-consul_template.service /etc/systemd/system/consul-template.service
 
 # Configure DNS
 #-------------------------------------------------------------------------------
+
+echo "Configure DNS"
 
 # Add hostname to /etc/hosts
 echo "127.0.0.1 $(hostname)" | sudo tee --append /etc/hosts
@@ -181,11 +215,17 @@ sudo systemctl restart systemd-resolved
 # Bootstrap Nomad
 #-------------------------------------------------------------------------------
 
+echo "Bootstrap Nomad"
+
 # Wait for nomad servers to come up and bootstrap nomad ACL
 for i in {1..12}; do
     # capture stdout and stderr
     set +e
     sleep 5
+    set -x 
+    export NOMAD_ADDR="https://localhost:4646"
+    export NOMAD_CACERT="$NOMAD_CONFIG_DIR/nomad-agent-ca.pem"
+
     OUTPUT=$(echo "$NOMAD_MANAGEMENT_TOKEN" | nomad acl bootstrap - 2>&1)
     if [ $? -ne 0 ]; then
         echo "nomad acl bootstrap: $OUTPUT"
@@ -200,9 +240,12 @@ for i in {1..12}; do
         echo "nomad bootstrapped"
         break
     fi
+    set +x 
     set -e
 done
 
+## todo instead of sleeping check on status https://developer.hashicorp.com/nomad/api-docs/status
+sleep 30
 
 # Set env vars for tool CLIs
 # echo "export CONSUL_RPC_ADDR=$IP_ADDRESS:8400" | sudo tee --append /home/$HOME_DIR/.bashrc
