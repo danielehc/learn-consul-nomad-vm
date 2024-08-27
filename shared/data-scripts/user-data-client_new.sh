@@ -92,8 +92,19 @@ NOMAD_AGENT_TOKEN="${nomad_agent_token}"
 #-------------------------------------------------------------------------------
 
 # Install and link CNI Plugins to support Consul Connect-Enabled jobs
-sudo apt install -y containernetworking-plugins
-sudo mkdir /opt/cni && sudo  ln -s /usr/lib/cni /opt/cni/bin
+# sudo apt install -y containernetworking-plugins
+# sudo mkdir /opt/cni && sudo  ln -s /usr/lib/cni /opt/cni/bin
+
+export ARCH_CNI=$( [ $(uname -m) = aarch64 ] && echo arm64 || echo amd64)
+export CNI_PLUGIN_VERSION=v1.5.1
+curl -L -o cni-plugins.tgz "https://github.com/containernetworking/plugins/releases/download/$CNI_PLUGIN_VERSION/cni-plugins-linux-$ARCH_CNI-$CNI_PLUGIN_VERSION".tgz && \
+  sudo mkdir -p /opt/cni/bin && \
+  sudo tar -C /opt/cni/bin -xzf cni-plugins.tgz
+
+export CONSUL_CNI_PLUGIN_VERSION=1.5.1
+curl -L -o consul-cni.zip "https://releases.hashicorp.com/consul-cni/$CONSUL_CNI_PLUGIN_VERSION/consul-cni_"$CONSUL_CNI_PLUGIN_VERSION"_linux_$ARCH_CNI".zip && \
+  sudo unzip consul-cni.zip -d /opt/cni/bin -x LICENSE.txt
+
 
 # Configure and start Consul
 #-------------------------------------------------------------------------------
