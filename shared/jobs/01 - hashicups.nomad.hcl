@@ -83,6 +83,13 @@ job "hashicups" {
   datacenters = var.datacenters
 
   group "hashicups" {
+
+    ephemeral_disk {
+      migrate = true
+      size    = 1000
+      sticky  = true
+    }
+
     network {
       port "db" { 
         static = 5432

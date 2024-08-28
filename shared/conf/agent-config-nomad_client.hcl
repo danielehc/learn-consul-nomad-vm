@@ -26,6 +26,9 @@ client {
     "driver.raw_exec.enable"    = "1"
     "docker.privileged.enabled" = "true"
   }
+  meta {
+    _NOMAD_AGENT_META
+  }
 }
 
 # -----------------------------+

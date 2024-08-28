@@ -51,7 +51,7 @@ variable "server_instance_type" {
 
 variable "client_instance_type" {
   description = "The AWS instance type to use for clients."
-  default     = "t2.micro"
+  default     = "t2.medium"
 }
 
 variable "root_block_device_size" {

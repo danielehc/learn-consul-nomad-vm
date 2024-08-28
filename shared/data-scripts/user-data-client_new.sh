@@ -85,6 +85,7 @@ CONSUL_DEFAULT_TOKEN="${consul_default_token}"
 NOMAD_DATACENTER="${datacenter}"
 NOMAD_DOMAIN="${domain}"
 NOMAD_NODE_NAME="${nomad_node_name}"
+NOMAD_AGENT_META='${nomad_agent_meta}'
 NOMAD_AGENT_TOKEN="${nomad_agent_token}"
 
 
@@ -132,11 +133,16 @@ sudo systemctl start consul.service
 # Copy template into Nomad configuration directory
 sudo cp $CONFIG_DIR/agent-config-nomad_client.hcl $NOMAD_CONFIG_DIR/nomad.hcl
 
+set -x 
+
 # Populate the file with values from the variables
 sudo sed -i "s/_NOMAD_DATACENTER/$NOMAD_DATACENTER/g" $NOMAD_CONFIG_DIR/nomad.hcl
 sudo sed -i "s/_NOMAD_DOMAIN/$NOMAD_DOMAIN/g" $NOMAD_CONFIG_DIR/nomad.hcl
 sudo sed -i "s/_NOMAD_NODE_NAME/$NOMAD_NODE_NAME/g" $NOMAD_CONFIG_DIR/nomad.hcl
+sudo sed -i "s/_NOMAD_AGENT_META/$NOMAD_AGENT_META/g" $NOMAD_CONFIG_DIR/nomad.hcl
 sudo sed -i "s/_CONSUL_AGENT_TOKEN/$NOMAD_AGENT_TOKEN/g" $NOMAD_CONFIG_DIR/nomad.hcl
+
+set +x 
 
 sudo systemctl enable nomad.service
 sudo systemctl start nomad.service
