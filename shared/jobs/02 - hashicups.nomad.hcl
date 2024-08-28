@@ -75,6 +75,11 @@ variable "nginx_port" {
   default = 80
 }
 
+variable "db_port" {
+  description = "Postgres Database Port"
+  default = 5432
+}
+
 # Begin Job Spec
 
 job "hashicups" {
@@ -93,7 +98,7 @@ job "hashicups" {
   group "hashicups" {
     network {
       port "db" {
-        static = 5432
+        static = var.db_port
       }
       port "product-api" {
         static = var.product_api_port
@@ -114,6 +119,7 @@ job "hashicups" {
       	servers = ["172.17.0.1"] 
       }
     }
+
     task "db" {
       driver = "docker"
       service {
@@ -137,6 +143,7 @@ job "hashicups" {
         POSTGRES_PASSWORD = "password"
       }
     }
+
     task "product-api" {
       driver = "docker"
       service {
@@ -154,39 +161,14 @@ job "hashicups" {
       }
       template {
         data        = <<EOH
-DB_CONNECTION="host=database.service.dc1.global port=5432 user=${var.postgres_user} password=${var.postgres_password} dbname=${var.postgres_db} sslmode=disable"
+DB_CONNECTION="host=database.service.dc1.global port=${var.db_port} user=${var.postgres_user} password=${var.postgres_password} dbname=${var.postgres_db} sslmode=disable"
 BIND_ADDRESS = "{{ env "NOMAD_IP_product-api" }}:${var.product_api_port}"
 EOH
         destination = "local/env.txt"
         env         = true
       }
     }
-    task "frontend" {
-      driver = "docker"
-      service {
-        name = "frontend"
-        provider = "consul"
-        port = "frontend"
-        address  = attr.unique.platform.aws.local-ipv4
-      }
-      meta {
-        service = "frontend"
-      }
-      template {
-        data        = <<EOH
-# NEXT_PUBLIC_PUBLIC_API_URL="http://public-api.service.dc1.global:${var.public_api_port}"
-NEXT_PUBLIC_PUBLIC_API_URL="/"
-NEXT_PUBLIC_FOOTER_FLAG="whatever-string"
-PORT="${var.frontend_port}"
-EOH
-        destination = "local/env.txt"
-        env         = true
-      }
-      config {
-        image   = "hashicorpdemoapp/frontend:${var.frontend_version}"
-        ports = ["frontend"]
-      }
-    }
+
     task "payments-api" {
       driver = "docker"
       service {
@@ -215,6 +197,7 @@ EOH
         memory = 500
       }
     }
+
     task "public-api" {
       driver = "docker"
       service {
@@ -240,6 +223,33 @@ EOH
         env         = true
       }
     }
+
+    task "frontend" {
+      driver = "docker"
+      service {
+        name = "frontend"
+        provider = "consul"
+        port = "frontend"
+        address  = attr.unique.platform.aws.local-ipv4
+      }
+      meta {
+        service = "frontend"
+      }
+      template {
+        data        = <<EOH
+NEXT_PUBLIC_PUBLIC_API_URL="/"
+NEXT_PUBLIC_FOOTER_FLAG="footer-string"
+PORT="${var.frontend_port}"
+EOH
+        destination = "local/env.txt"
+        env         = true
+      }
+      config {
+        image   = "hashicorpdemoapp/frontend:${var.frontend_version}"
+        ports = ["frontend"]
+      }
+    }
+
     task "nginx" {
       driver = "docker"
       service {
@@ -267,7 +277,7 @@ upstream frontend_upstream {
     server frontend.service.dc1.global:${var.frontend_port};
 }
 server {
-  listen {{ env "NOMAD_PORT_nginx" }};
+  listen ${var.nginx_port};
   # server_name public-api.service.dc1.global;
   server_name {{ env "NOMAD_IP_nginx" }};
   server_tokens off;
@@ -280,33 +290,10 @@ server {
   proxy_set_header Connection 'upgrade';
   proxy_set_header Host $host;
   proxy_cache_bypass $http_upgrade;
-  
-  #  location /_next/static {
-  #   proxy_cache STATIC;
-  #   proxy_pass http://frontend_upstream;
-  #   # For testing cache - remove before deploying to production
-  #   add_header X-Cache-Status $upstream_cache_status;
-  # }
-  # location /static {
-  #   proxy_cache STATIC;
-  #   proxy_ignore_headers Cache-Control;
-  #   proxy_cache_valid 60m;
-  #   proxy_pass http://frontend_upstream;
-  #   # For testing cache - remove before deploying to production
-  #   add_header X-Cache-Status $upstream_cache_status;
-  # }
-  location / {
-    # add_header 'Access-Control-Allow-Origin' '*' always;
-		# add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
-    # add_header 'Access-Control-Allow-Credentials' 'true' always;
-		# add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,Keep-Alive,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range' always;  
+  location / { 
     proxy_pass http://frontend_upstream;
   }
   location /api {
-    # add_header 'Access-Control-Allow-Origin' '*' always;
-		# add_header 'Access-Control-Allow-Methods' 'GET, POST, OPTIONS' always;
-    # add_header 'Access-Control-Allow-Credentials' 'true' always;
-		# add_header 'Access-Control-Allow-Headers' 'DNT,User-Agent,Keep-Alive,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range' always;  
     proxy_pass http://public-api.service.dc1.global:${var.public_api_port};
   }
 }

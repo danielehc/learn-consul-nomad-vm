@@ -75,6 +75,11 @@ variable "nginx_port" {
   default = 80
 }
 
+variable "db_port" {
+  description = "Postgres Database Port"
+  default = 5432
+}
+
 # Begin Job Spec
 
 job "hashicups" {
@@ -82,17 +87,18 @@ job "hashicups" {
   region = var.region
   datacenters = var.datacenters
 
+  # Constrain everything to a public client so nginx
+  # is accessible on port 80
+  constraint {
+    attribute = "${meta.nodeRole}"
+    operator  = "="
+    value     = "ingress"
+  }
+
   group "hashicups" {
-
-    ephemeral_disk {
-      migrate = true
-      size    = 1000
-      sticky  = true
-    }
-
     network {
       port "db" { 
-        static = 5432
+        static = var.db_port
       }
       port "product-api" {
         static = var.product_api_port
@@ -137,8 +143,8 @@ job "hashicups" {
         ports = ["product-api"]
       }
       env {
-        DB_CONNECTION = "host=${NOMAD_IP_db} port=${NOMAD_PORT_db} user=${var.postgres_user} password=${var.postgres_password} dbname=${var.postgres_db} sslmode=disable"
-        BIND_ADDRESS = "0.0.0.0:${NOMAD_PORT_product-api}"
+        DB_CONNECTION = "host=${NOMAD_IP_db} port=${var.db_port} user=${var.postgres_user} password=${var.postgres_password} dbname=${var.postgres_db} sslmode=disable"
+        BIND_ADDRESS = ":${var.product_api_port}"
       }
     }
 
@@ -175,7 +181,7 @@ job "hashicups" {
         ports = ["public-api"]
       }
       env {
-        BIND_ADDRESS = ":${NOMAD_PORT_public-api}"
+        BIND_ADDRESS = ":${var.public_api_port}"
         PRODUCT_API_URI = "http://${NOMAD_ADDR_product-api}"
         PAYMENT_API_URI = "http://${NOMAD_ADDR_payments-api}"
       }
@@ -188,7 +194,8 @@ job "hashicups" {
       }
       env {
         NEXT_PUBLIC_PUBLIC_API_URL= "/"
-        PORT = "${NOMAD_PORT_frontend}"
+        NEXT_PUBLIC_FOOTER_FLAG="footer-string"
+        PORT="${var.frontend_port}"
       }
       config {
         image   = "hashicorpdemoapp/frontend:${var.frontend_version}"
@@ -214,10 +221,10 @@ job "hashicups" {
         data =  <<EOF
 proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=STATIC:10m inactive=7d use_temp_path=off;
 upstream frontend_upstream {
-  server {{ env "NOMAD_IP_nginx" }}:{{ env "NOMAD_PORT_frontend" }};
+  server {{ env "NOMAD_IP_nginx" }}:${var.frontend_port};
 }
 server {
-  listen {{ env "NOMAD_PORT_nginx" }};
+  listen ${var.nginx_port};
   server_name {{ env "NOMAD_IP_nginx" }};
   server_tokens off;
   gzip on;
@@ -229,25 +236,11 @@ server {
   proxy_set_header Connection 'upgrade';
   proxy_set_header Host $host;
   proxy_cache_bypass $http_upgrade;
-  location /_next/static {
-    proxy_cache STATIC;
-    proxy_pass http://frontend_upstream;
-    # For testing cache - remove before deploying to production
-    add_header X-Cache-Status $upstream_cache_status;
-  }
-  location /static {
-    proxy_cache STATIC;
-    proxy_ignore_headers Cache-Control;
-    proxy_cache_valid 60m;
-    proxy_pass http://frontend_upstream;
-    # For testing cache - remove before deploying to production
-    add_header X-Cache-Status $upstream_cache_status;
-  }
   location / {
     proxy_pass http://frontend_upstream;
   }
   location /api {
-    proxy_pass http://{{ env "NOMAD_IP_frontend" }}:{{ env "NOMAD_PORT_public_api" }};
+    proxy_pass http://{{ env "NOMAD_IP_public_api" }}:${var.public_api_port};
   }
 }
         EOF
@@ -256,4 +249,3 @@ server {
     }
   }
 }
-
