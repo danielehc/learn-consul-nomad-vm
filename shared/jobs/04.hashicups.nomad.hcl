@@ -105,6 +105,7 @@ job "hashicups" {
       name = "database"
       provider = "consul"
       # port = "db"
+      port = "${var.db_port}"
       # Update to something like attr.unique.network.ip-address if
       # running on local nomad cluster (agent -dev)
       address  = attr.unique.platform.aws.local-ipv4
@@ -143,6 +144,7 @@ job "hashicups" {
       }
     }
   }
+
   group "product-api" {
 
     count = 1
@@ -161,6 +163,7 @@ job "hashicups" {
         name = "product-api"
         provider = "consul"
         # port = "product-api"
+        port = "${var.product_api_port}"
         address  = attr.unique.platform.aws.local-ipv4
 
         connect {
@@ -225,6 +228,7 @@ EOH
       name = "frontend"
       provider = "consul"
       # port = "frontend"
+      port = "${var.frontend_port}"
       address  = attr.unique.platform.aws.local-ipv4
 
       connect {
@@ -250,6 +254,7 @@ EOH
       meta {
         service = "frontend"
       }
+
       template {
         data        = <<EOH
 NEXT_PUBLIC_PUBLIC_API_URL="/"
@@ -265,6 +270,7 @@ EOH
       }
     }
   }
+
   group "payments" {
 
     count = 1
@@ -283,6 +289,7 @@ EOH
       name = "payments-api"
       provider = "consul"
       #port = "payments-api"
+      port = "${var.payments_api_port}"
       address  = attr.unique.platform.aws.local-ipv4
 
       connect {
@@ -307,6 +314,7 @@ EOH
       meta {
         service = "payments-api"
       }
+
       config {
         image   = "hashicorpdemoapp/payments:${var.payments_version}"
         ports = ["${var.payments_api_port}"]
@@ -344,6 +352,7 @@ EOH
         name = "public-api"
         provider = "consul"
         # port = "public-api"
+        port = "${var.public_api_port}"
         address  = attr.unique.platform.aws.local-ipv4
 
         connect {

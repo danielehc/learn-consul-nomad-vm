@@ -31,6 +31,16 @@ resource "consul_config_entry" "frontend_default_http" {
   })
 }
 
+resource "consul_config_entry" "database_default_tcp" {
+  name = "database"
+  kind = "service-defaults"
+
+  config_json = jsonencode({
+  	"Namespace": "default",
+  	"Protocol": "tcp"
+  })
+}
+
 # resource "consul_config_entry_service_defaults" "default_http" {
 #   name = "*"
 #   namespace = "default"
