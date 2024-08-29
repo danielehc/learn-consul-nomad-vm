@@ -88,6 +88,9 @@ job "hashicups" {
   datacenters = var.datacenters
 
   group "db" {
+
+    count = 1
+
     network {
       port "db" {
         static = var.db_port
@@ -110,6 +113,11 @@ job "hashicups" {
         # Update to something like attr.unique.network.ip-address if
         # running on local nomad cluster (agent -dev)
         address  = attr.unique.platform.aws.local-ipv4
+        check {
+					type      = "tcp"
+					interval  = "5s"
+					timeout   = "5s"
+        }
       }
       meta {
         service = "database"
@@ -126,6 +134,9 @@ job "hashicups" {
     }
   }
   group "product-api" {
+
+    count = 1
+
     network {
       port "product-api" {
         static = var.product_api_port
@@ -146,6 +157,11 @@ job "hashicups" {
         provider = "consul"
         port = "product-api"
         address  = attr.unique.platform.aws.local-ipv4
+        check {
+					type      = "tcp"
+					interval  = "5s"
+					timeout   = "5s"
+        }
       }
       meta {
         service = "product-api"
@@ -165,6 +181,9 @@ EOH
     }
   }
   group "frontend" {
+    
+    count = 1
+
     network {
       port "frontend" {
         static = var.frontend_port
@@ -185,6 +204,11 @@ EOH
         provider = "consul"
         port = "frontend"
         address  = attr.unique.platform.aws.local-ipv4
+        check {
+					type      = "tcp"
+					interval  = "5s"
+					timeout   = "5s"
+        }
       }
       meta {
         service = "frontend"
@@ -193,7 +217,7 @@ EOH
         data        = <<EOH
 # NEXT_PUBLIC_PUBLIC_API_URL="http://public-api.service.dc1.global:${var.public_api_port}"
 NEXT_PUBLIC_PUBLIC_API_URL="/"
-NEXT_PUBLIC_FOOTER_FLAG="footer-string"
+NEXT_PUBLIC_FOOTER_FLAG="HashiCups Frontend instance {{ env "NOMAD_ALLOC_INDEX" }}"
 PORT="${var.frontend_port}"
 EOH
         destination = "local/env.txt"
@@ -206,6 +230,9 @@ EOH
     }
   }
   group "payments" {
+
+    count = 1
+
     network {
       port "payments-api" {
         static = var.payments_api_port
@@ -226,6 +253,11 @@ EOH
         provider = "consul"
         port = "payments-api"
         address  = attr.unique.platform.aws.local-ipv4
+        check {
+					type      = "tcp"
+					interval  = "5s"
+					timeout   = "5s"
+        }
       }
       meta {
         service = "payments-api"
@@ -248,7 +280,11 @@ EOH
       }
     }
   }
+
   group "public-api" {
+
+    count = 1
+
     network {
       port "public-api" {
         static = var.public_api_port
@@ -269,6 +305,11 @@ EOH
         provider = "consul"
         port = "public-api"
         address  = attr.unique.platform.aws.local-ipv4
+        check {
+					type      = "tcp"
+					interval  = "5s"
+					timeout   = "5s"
+        }
       }
       meta {
         service = "public-api"
@@ -289,6 +330,9 @@ EOH
     }
   }
   group "nginx" {
+
+    count = 1
+
     network {
       port "nginx" {
         static = var.nginx_port
@@ -309,6 +353,11 @@ EOH
         provider = "consul"
         port = "nginx"
         address  = attr.unique.platform.aws.public-hostname
+        check {
+					type      = "tcp"
+					interval  = "5s"
+					timeout   = "5s"
+        }
       }
       meta {
         service = "nginx-reverse-proxy"

@@ -96,6 +96,9 @@ job "hashicups" {
   }
 
   group "hashicups" {
+
+    count = 1
+
     network {
       port "db" {
         static = var.db_port
@@ -129,6 +132,11 @@ job "hashicups" {
         # Update to something like attr.unique.network.ip-address if
         # running on local nomad cluster (agent -dev)
         address  = attr.unique.platform.aws.local-ipv4
+        check {
+					type      = "tcp"
+					interval  = "5s"
+					timeout   = "5s"
+        }
       }
       meta {
         service = "database"
@@ -151,6 +159,11 @@ job "hashicups" {
         provider = "consul"
         port = "product-api"
         address  = attr.unique.platform.aws.local-ipv4
+        check {
+					type      = "tcp"
+					interval  = "5s"
+					timeout   = "5s"
+        }
       }
       meta {
         service = "product-api"
@@ -176,6 +189,11 @@ EOH
         provider = "consul"
         port = "payments-api"
         address  = attr.unique.platform.aws.local-ipv4
+        check {
+					type      = "tcp"
+					interval  = "5s"
+					timeout   = "5s"
+        }
       }
       meta {
         service = "payments-api"
@@ -205,6 +223,11 @@ EOH
         provider = "consul"
         port = "public-api"
         address  = attr.unique.platform.aws.local-ipv4
+        check {
+					type      = "tcp"
+					interval  = "5s"
+					timeout   = "5s"
+        }
       }
       meta {
         service = "public-api"
@@ -231,6 +254,11 @@ EOH
         provider = "consul"
         port = "frontend"
         address  = attr.unique.platform.aws.local-ipv4
+        check {
+					type      = "tcp"
+					interval  = "5s"
+					timeout   = "5s"
+        }
       }
       meta {
         service = "frontend"
@@ -238,7 +266,7 @@ EOH
       template {
         data        = <<EOH
 NEXT_PUBLIC_PUBLIC_API_URL="/"
-NEXT_PUBLIC_FOOTER_FLAG="footer-string"
+NEXT_PUBLIC_FOOTER_FLAG="HashiCups instance {{ env "NOMAD_ALLOC_INDEX" }}"
 PORT="${var.frontend_port}"
 EOH
         destination = "local/env.txt"
@@ -257,6 +285,11 @@ EOH
         provider = "consul"
         port = "nginx"
         address  = attr.unique.platform.aws.public-hostname
+        check {
+					type      = "tcp"
+					interval  = "5s"
+					timeout   = "5s"
+        }
       }
       meta {
         service = "nginx-reverse-proxy"

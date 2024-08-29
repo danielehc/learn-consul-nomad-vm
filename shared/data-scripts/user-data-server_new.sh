@@ -60,6 +60,7 @@ case $CLOUD in
     TOKEN=$(curl -X PUT "http://instance-data/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
 
     IP_ADDRESS=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" http://instance-data/latest/meta-data/local-ipv4)
+    PUBLIC_IP_ADDRESS=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" http://instance-data/latest/meta-data/public-ipv4)
     ;;
   gce)
     echo "CLOUD_ENV: gce"
@@ -95,6 +96,7 @@ NOMAD_DOMAIN="${domain}"
 NOMAD_NODE_NAME="${nomad_node_name}"
 NOMAD_SERVER_COUNT="${server_count}"
 NOMAD_ENCRYPTION_KEY="${nomad_encryption_key}"
+CONSUL_PUBLIC_BIND_ADDR="$PUBLIC_IP_ADDRESS"
 
 NOMAD_MANAGEMENT_TOKEN="${nomad_management_token}"
 
@@ -166,7 +168,7 @@ sudo sed -i "s/_NOMAD_DOMAIN/$NOMAD_DOMAIN/g" $NOMAD_CONFIG_DIR/nomad.hcl
 sudo sed -i "s/_NOMAD_NODE_NAME/$NOMAD_NODE_NAME/g" $NOMAD_CONFIG_DIR/nomad.hcl
 sudo sed -i "s/_NOMAD_SERVER_COUNT/$NOMAD_SERVER_COUNT/g" $NOMAD_CONFIG_DIR/nomad.hcl
 sudo sed -i "s#_NOMAD_ENCRYPTION_KEY#$NOMAD_ENCRYPTION_KEY#g" $NOMAD_CONFIG_DIR/nomad.hcl
-sudo sed -i "s/_CONSUL_IP_ADDRESS/$CONSUL_BIND_ADDR/g" $NOMAD_CONFIG_DIR/nomad.hcl
+sudo sed -i "s/_CONSUL_IP_ADDRESS/$CONSUL_PUBLIC_BIND_ADDR/g" $NOMAD_CONFIG_DIR/nomad.hcl
 sudo sed -i "s/_CONSUL_AGENT_TOKEN/$CONSUL_AGENT_TOKEN/g" $NOMAD_CONFIG_DIR/nomad.hcl
 
 echo "Start Nomad"
