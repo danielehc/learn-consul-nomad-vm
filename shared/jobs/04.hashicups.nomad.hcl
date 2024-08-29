@@ -354,7 +354,7 @@ EOH
                 local_bind_port = 9090
               }
               upstreams {
-                destination_name = "product-api"
+                destination_name = "payments-api"
                 local_bind_port = 8080
               }
             }
@@ -393,6 +393,7 @@ EOH
       }
     }
   }
+
   group "nginx" {
 
     count = 1
@@ -460,6 +461,7 @@ EOH
 proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=STATIC:10m inactive=7d use_temp_path=off;
 upstream frontend_upstream {
     server 127.0.0.1:${var.frontend_port};
+    # server frontend.virtual.global;
 }
 server {
   listen ${var.nginx_port};
@@ -479,6 +481,7 @@ server {
   }
   location /api {
     proxy_pass http://127.0.0.1:${var.public_api_port};
+    # proxy_pass http://public-api.virtual.global;
   }
 }
         EOF
