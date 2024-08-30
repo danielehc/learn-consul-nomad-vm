@@ -114,9 +114,14 @@ job "hashicups" {
         # running on local nomad cluster (agent -dev)
         address  = attr.unique.platform.aws.local-ipv4
         check {
-					type      = "tcp"
-					interval  = "5s"
-					timeout   = "5s"
+          name      = "database check"
+          type      = "script"
+          command   = "/usr/bin/pg_isready"
+          args      = ["-d", "${var.db_port}"]
+          interval  = "5s"
+          timeout   = "2s"
+          on_update = "ignore_warnings"
+          task      = "db"
         }
       }
       meta {
@@ -133,6 +138,7 @@ job "hashicups" {
       }
     }
   }
+
   group "product-api" {
 
     count = 1
@@ -158,7 +164,8 @@ job "hashicups" {
         port = "product-api"
         address  = attr.unique.platform.aws.local-ipv4
         check {
-					type      = "tcp"
+					type      = "http" 
+          path      = "/health/readyz" 
 					interval  = "5s"
 					timeout   = "5s"
         }
@@ -180,55 +187,7 @@ EOH
       }
     }
   }
-  group "frontend" {
-    
-    count = 1
 
-    network {
-      port "frontend" {
-        static = var.frontend_port
-      }
-      dns {
-      	servers = ["172.17.0.1"] 
-      }
-    }
-    task "frontend" {
-      driver = "docker"
-      constraint {
-        attribute = "${meta.nodeRole}"
-        operator  = "!="
-        value     = "ingress"
-      }
-      service {
-        name = "frontend"
-        provider = "consul"
-        port = "frontend"
-        address  = attr.unique.platform.aws.local-ipv4
-        check {
-					type      = "tcp"
-					interval  = "5s"
-					timeout   = "5s"
-        }
-      }
-      meta {
-        service = "frontend"
-      }
-      template {
-        data        = <<EOH
-# NEXT_PUBLIC_PUBLIC_API_URL="http://public-api.service.dc1.global:${var.public_api_port}"
-NEXT_PUBLIC_PUBLIC_API_URL="/"
-NEXT_PUBLIC_FOOTER_FLAG="HashiCups Frontend instance {{ env "NOMAD_ALLOC_INDEX" }}"
-PORT="${var.frontend_port}"
-EOH
-        destination = "local/env.txt"
-        env         = true
-      }
-      config {
-        image   = "hashicorpdemoapp/frontend:${var.frontend_version}"
-        ports = ["frontend"]
-      }
-    }
-  }
   group "payments" {
 
     count = 1
@@ -254,7 +213,8 @@ EOH
         port = "payments-api"
         address  = attr.unique.platform.aws.local-ipv4
         check {
-					type      = "tcp"
+					type      = "http"
+          path			= "/actuator/health"
 					interval  = "5s"
 					timeout   = "5s"
         }
@@ -306,7 +266,8 @@ EOH
         port = "public-api"
         address  = attr.unique.platform.aws.local-ipv4
         check {
-					type      = "tcp"
+					type      = "http"
+          path			= "/health"
 					interval  = "5s"
 					timeout   = "5s"
         }
@@ -329,6 +290,57 @@ EOH
       }
     }
   }
+
+  group "frontend" {
+    
+    count = 1
+
+    network {
+      port "frontend" {
+        static = var.frontend_port
+      }
+      dns {
+      	servers = ["172.17.0.1"] 
+      }
+    }
+    task "frontend" {
+      driver = "docker"
+      constraint {
+        attribute = "${meta.nodeRole}"
+        operator  = "!="
+        value     = "ingress"
+      }
+      service {
+        name = "frontend"
+        provider = "consul"
+        port = "frontend"
+        address  = attr.unique.platform.aws.local-ipv4
+        check {
+					type      = "tcp"
+					interval  = "5s"
+					timeout   = "5s"
+        }
+      }
+      meta {
+        service = "frontend"
+      }
+      template {
+        data        = <<EOH
+# NEXT_PUBLIC_PUBLIC_API_URL="http://public-api.service.dc1.global:${var.public_api_port}"
+NEXT_PUBLIC_PUBLIC_API_URL="/"
+NEXT_PUBLIC_FOOTER_FLAG="HashiCups Frontend instance {{ env "NOMAD_ALLOC_INDEX" }}"
+PORT="${var.frontend_port}"
+EOH
+        destination = "local/env.txt"
+        env         = true
+      }
+      config {
+        image   = "hashicorpdemoapp/frontend:${var.frontend_version}"
+        ports = ["frontend"]
+      }
+    }
+  }
+  
   group "nginx" {
 
     count = 1
@@ -354,7 +366,8 @@ EOH
         port = "nginx"
         address  = attr.unique.platform.aws.public-hostname
         check {
-					type      = "tcp"
+					type      = "http"
+          path			= "/health"
 					interval  = "5s"
 					timeout   = "5s"
         }
@@ -396,6 +409,11 @@ server {
   }
   location /api {
     proxy_pass http://public-api.service.dc1.global:${var.public_api_port};
+  }
+  location = /health {
+    access_log off;
+    add_header 'Content-Type' 'application/json';
+    return 200 '{"status":"UP"}';
   }
 }
         EOF

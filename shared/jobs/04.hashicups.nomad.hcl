@@ -114,11 +114,16 @@ job "hashicups" {
         sidecar_service {}
       }
       
-      #check {
-      #  type      = "http"
-      #  interval  = "5s"
-      #  timeout   = "5s"
-      # }
+      check {
+        name      = "database check"
+        type      = "script"
+        command   = "/usr/bin/pg_isready"
+        args      = ["-d", "${var.db_port}"]
+        interval  = "5s"
+        timeout   = "2s"
+        on_update = "ignore_warnings"
+        task      = "db"
+      }
     }
     
     
@@ -160,30 +165,30 @@ job "hashicups" {
     }
     
     service {
-        name = "product-api"
-        provider = "consul"
-        # port = "product-api"
-        port = "${var.product_api_port}"
-        address  = attr.unique.platform.aws.local-ipv4
+      name = "product-api"
+      provider = "consul"
+      # port = "product-api"
+      port = "${var.product_api_port}"
+      address  = attr.unique.platform.aws.local-ipv4
 
-        connect {
-            sidecar_service {
-            proxy {
-              upstreams {
-                destination_name = "database"
-                local_bind_port = 5432
-              }
+      connect {
+        sidecar_service {
+          proxy {
+            upstreams {
+              destination_name = "database"
+              local_bind_port = 5432
             }
           }
         }
-
-
-        #check {
-				#	type      = "tcp"
-				#	interval  = "5s"
-				#	timeout   = "5s"
-        # }
       }
+
+      # check {
+      #   type      = "http" 
+      #   path      = "/health/readyz" 
+      #   interval  = "5s"
+      #   timeout   = "5s"
+      # }
+    }
     
     task "product-api" {
       driver = "docker"
@@ -210,6 +215,142 @@ EOH
       }
     }
   }
+
+  group "payments" {
+
+    count = 1
+
+    network {
+      mode = "bridge"
+      # port "payments-api" {
+      #   static = var.payments_api_port
+      # }
+      # dns {
+      # 	servers = ["172.17.0.1"] 
+      # }
+    }
+
+    service {
+      name = "payments-api"
+      provider = "consul"
+      #port = "payments-api"
+      port = "${var.payments_api_port}"
+      address  = attr.unique.platform.aws.local-ipv4
+
+      connect {
+        sidecar_service {}
+      }
+
+      # check {
+      #   type      = "http"
+      #   path			= "/actuator/health"
+      #   interval  = "5s"
+      #   timeout   = "5s"
+      # }
+    }
+
+    task "payments-api" {
+      driver = "docker"
+      constraint {
+        attribute = "${meta.nodeRole}"
+        operator  = "!="
+        value     = "ingress"
+      }
+      
+      meta {
+        service = "payments-api"
+      }
+
+      config {
+        image   = "hashicorpdemoapp/payments:${var.payments_version}"
+        ports = ["${var.payments_api_port}"]
+        mount {
+          type   = "bind"
+          source = "local/application.properties"
+          target = "/application.properties"
+        }
+      }
+      template {
+        data = "server.port=${var.payments_api_port}"
+        destination = "local/application.properties"
+      }
+      resources {
+        memory = 500
+      }
+    }
+  }
+
+  group "public-api" {
+
+    count = 1
+
+    network {
+      mode = "bridge"
+      # port "public-api" {
+      #   static = var.public_api_port
+      # }
+      # dns {
+      # 	servers = ["172.17.0.1"] 
+      # }
+    }
+    
+    service {
+      name = "public-api"
+      provider = "consul"
+      # port = "public-api"
+      port = "${var.public_api_port}"
+      address  = attr.unique.platform.aws.local-ipv4
+
+      connect {
+        sidecar_service {
+          proxy {
+            upstreams {
+              destination_name = "product-api"
+              local_bind_port = 9090
+            }
+            upstreams {
+              destination_name = "payments-api"
+              local_bind_port = 8080
+            }
+          }
+        }
+      }
+
+      # check {
+      #   type      = "http"
+      #   path			= "/health"
+      #   interval  = "5s"
+      #   timeout   = "5s"
+      # }
+    }
+
+    task "public-api" {
+      driver = "docker"
+      constraint {
+        attribute = "${meta.nodeRole}"
+        operator  = "!="
+        value     = "ingress"
+      }
+      
+      meta {
+        service = "public-api"
+      }
+      config {
+        image   = "hashicorpdemoapp/public-api:${var.public_api_version}"
+        ports = ["${var.public_api_port}"] 
+      }
+      template {
+        data        = <<EOH
+BIND_ADDRESS = ":${var.public_api_port}"
+PRODUCT_API_URI = "http://127.0.0.1:${var.product_api_port}"
+PAYMENT_API_URI = "http://127.0.0.1:${var.payments_api_port}"
+EOH
+        destination = "local/env.txt"
+        env         = true
+      }
+    }
+  }
+
   group "frontend" {
     
     count = 1
@@ -271,138 +412,6 @@ EOH
     }
   }
 
-  group "payments" {
-
-    count = 1
-
-    network {
-      mode = "bridge"
-      # port "payments-api" {
-      #   static = var.payments_api_port
-      # }
-      # dns {
-      # 	servers = ["172.17.0.1"] 
-      # }
-    }
-
-    service {
-      name = "payments-api"
-      provider = "consul"
-      #port = "payments-api"
-      port = "${var.payments_api_port}"
-      address  = attr.unique.platform.aws.local-ipv4
-
-      connect {
-        sidecar_service {}
-      }
-
-        # check {
-					# type      = "tcp"
-					# interval  = "5s"
-					# timeout   = "5s"
-        # }
-    }
-
-    task "payments-api" {
-      driver = "docker"
-      constraint {
-        attribute = "${meta.nodeRole}"
-        operator  = "!="
-        value     = "ingress"
-      }
-      
-      meta {
-        service = "payments-api"
-      }
-
-      config {
-        image   = "hashicorpdemoapp/payments:${var.payments_version}"
-        ports = ["${var.payments_api_port}"]
-        mount {
-          type   = "bind"
-          source = "local/application.properties"
-          target = "/application.properties"
-        }
-      }
-      template {
-        data = "server.port=${var.payments_api_port}"
-        destination = "local/application.properties"
-      }
-      resources {
-        memory = 500
-      }
-    }
-  }
-
-  group "public-api" {
-
-    count = 1
-
-    network {
-      mode = "bridge"
-      # port "public-api" {
-      #   static = var.public_api_port
-      # }
-      # dns {
-      # 	servers = ["172.17.0.1"] 
-      # }
-    }
-    
-    service {
-        name = "public-api"
-        provider = "consul"
-        # port = "public-api"
-        port = "${var.public_api_port}"
-        address  = attr.unique.platform.aws.local-ipv4
-
-        connect {
-            sidecar_service {
-            proxy {
-              upstreams {
-                destination_name = "product-api"
-                local_bind_port = 9090
-              }
-              upstreams {
-                destination_name = "payments-api"
-                local_bind_port = 8080
-              }
-            }
-          }
-        }
-
-        # check {
-				# 	type      = "tcp"
-				# 	interval  = "5s"
-				# 	timeout   = "5s"
-        # }
-      }
-    task "public-api" {
-      driver = "docker"
-      constraint {
-        attribute = "${meta.nodeRole}"
-        operator  = "!="
-        value     = "ingress"
-      }
-      
-      meta {
-        service = "public-api"
-      }
-      config {
-        image   = "hashicorpdemoapp/public-api:${var.public_api_version}"
-        ports = ["${var.public_api_port}"] 
-      }
-      template {
-        data        = <<EOH
-BIND_ADDRESS = ":${var.public_api_port}"
-PRODUCT_API_URI = "http://127.0.0.1:${var.product_api_port}"
-PAYMENT_API_URI = "http://127.0.0.1:${var.payments_api_port}"
-EOH
-        destination = "local/env.txt"
-        env         = true
-      }
-    }
-  }
-
   group "nginx" {
 
     count = 1
@@ -424,7 +433,7 @@ EOH
       address  = attr.unique.platform.aws.public-hostname
 
       connect {
-          sidecar_service {
+        sidecar_service {
           proxy {
             upstreams {
               destination_name = "public-api"
@@ -438,11 +447,12 @@ EOH
         }
       }
 
-      # check {
-      #   type      = "tcp"
-      #   interval  = "5s"
-      #   timeout   = "5s"
-      # }
+      check {
+        type      = "http"
+        path			= "/health"
+        interval  = "5s"
+        timeout   = "5s"
+      }
     }
 
     task "nginx" {
@@ -491,6 +501,11 @@ server {
   location /api {
     proxy_pass http://127.0.0.1:${var.public_api_port};
     # proxy_pass http://public-api.virtual.global;
+  }
+  location = /health {
+    access_log off;
+    add_header 'Content-Type' 'application/json';
+    return 200 '{"status":"UP"}';
   }
 }
         EOF

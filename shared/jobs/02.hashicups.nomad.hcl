@@ -133,9 +133,14 @@ job "hashicups" {
         # running on local nomad cluster (agent -dev)
         address  = attr.unique.platform.aws.local-ipv4
         check {
-					type      = "tcp"
-					interval  = "5s"
-					timeout   = "5s"
+          name      = "database check"
+          type      = "script"
+          command   = "/usr/bin/pg_isready"
+          args      = ["-d", "${var.db_port}"]
+          interval  = "5s"
+          timeout   = "2s"
+          on_update = "ignore_warnings"
+          task      = "db"
         }
       }
       meta {
@@ -160,7 +165,8 @@ job "hashicups" {
         port = "product-api"
         address  = attr.unique.platform.aws.local-ipv4
         check {
-					type      = "tcp"
+					type      = "http" 
+          path      = "/health/readyz" 
 					interval  = "5s"
 					timeout   = "5s"
         }
@@ -190,7 +196,8 @@ EOH
         port = "payments-api"
         address  = attr.unique.platform.aws.local-ipv4
         check {
-					type      = "tcp"
+					type      = "http"
+          path			= "/actuator/health"
 					interval  = "5s"
 					timeout   = "5s"
         }
@@ -224,7 +231,8 @@ EOH
         port = "public-api"
         address  = attr.unique.platform.aws.local-ipv4
         check {
-					type      = "tcp"
+					type      = "http"
+          path			= "/health"
 					interval  = "5s"
 					timeout   = "5s"
         }
@@ -286,7 +294,8 @@ EOH
         port = "nginx"
         address  = attr.unique.platform.aws.public-hostname
         check {
-					type      = "tcp"
+					type      = "http"
+          path			= "/health"
 					interval  = "5s"
 					timeout   = "5s"
         }
@@ -328,6 +337,11 @@ server {
   }
   location /api {
     proxy_pass http://public-api.service.dc1.global:${var.public_api_port};
+  }
+  location = /health {
+    access_log off;
+    add_header 'Content-Type' 'application/json';
+    return 200 '{"status":"UP"}';
   }
 }
         EOF
