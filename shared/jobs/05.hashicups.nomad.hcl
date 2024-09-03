@@ -182,7 +182,6 @@ job "hashicups" {
               proxy {
                 transparent_proxy {
                   no_dns = true
-                  exclude_inbound_ports = [var.product_api_port]
                 }
               }
             }
