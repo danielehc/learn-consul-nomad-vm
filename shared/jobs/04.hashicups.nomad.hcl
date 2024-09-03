@@ -115,7 +115,7 @@ job "hashicups" {
       }
       
       check {
-        name      = "database check"
+        name      = "Database ready"
         type      = "script"
         command   = "/usr/bin/pg_isready"
         args      = ["-d", "${var.db_port}"]
@@ -169,7 +169,7 @@ job "hashicups" {
       provider = "consul"
       # port = "product-api"
       port = "${var.product_api_port}"
-      address  = attr.unique.platform.aws.local-ipv4
+      # address  = attr.unique.platform.aws.local-ipv4
 
       connect {
         sidecar_service {
@@ -182,12 +182,25 @@ job "hashicups" {
         }
       }
 
-      # check {
-      #   type      = "http" 
-      #   path      = "/health/readyz" 
-      #   interval  = "5s"
-      #   timeout   = "5s"
-      # }
+      # DB connectivity check 
+      check {
+        name        = "DB connection ready"
+        address_mode = "alloc"
+        type      = "http" 
+        path      = "/health/readyz" 
+        interval  = "5s"
+        timeout   = "5s"
+      }
+
+      # Server ready check
+      check {
+        name        = "Product API ready"
+        address_mode = "alloc"
+        type      = "http" 
+        path      = "/health/livez" 
+        interval  = "5s"
+        timeout   = "5s"
+      }
     }
     
     task "product-api" {
@@ -235,18 +248,20 @@ EOH
       provider = "consul"
       #port = "payments-api"
       port = "${var.payments_api_port}"
-      address  = attr.unique.platform.aws.local-ipv4
+      # address  = attr.unique.platform.aws.local-ipv4
 
       connect {
         sidecar_service {}
       }
 
-      # check {
-      #   type      = "http"
-      #   path			= "/actuator/health"
-      #   interval  = "5s"
-      #   timeout   = "5s"
-      # }
+      check {
+        name      = "Payments API ready"
+        address_mode = "alloc"
+        type      = "http"
+        path			= "/actuator/health"
+        interval  = "5s"
+        timeout   = "5s"
+      }
     }
 
     task "payments-api" {
@@ -299,7 +314,7 @@ EOH
       provider = "consul"
       # port = "public-api"
       port = "${var.public_api_port}"
-      address  = attr.unique.platform.aws.local-ipv4
+      # address  = attr.unique.platform.aws.local-ipv4
 
       connect {
         sidecar_service {
@@ -316,12 +331,14 @@ EOH
         }
       }
 
-      # check {
-      #   type      = "http"
-      #   path			= "/health"
-      #   interval  = "5s"
-      #   timeout   = "5s"
-      # }
+      check {
+        name      = "Public API ready"
+        address_mode = "alloc"
+        type      = "http"
+        path			= "/health"
+        interval  = "5s"
+        timeout   = "5s"
+      }
     }
 
     task "public-api" {
@@ -370,17 +387,20 @@ EOH
       provider = "consul"
       # port = "frontend"
       port = "${var.frontend_port}"
-      address  = attr.unique.platform.aws.local-ipv4
+      # address  = attr.unique.platform.aws.local-ipv4
 
       connect {
         sidecar_service {}
       }
 
-        # check {
-				# 	type      = "tcp"
-				#	interval  = "5s"
-				#	timeout   = "5s"
-        #}
+        check {
+          name      = "Frontend ready"
+          address_mode = "alloc"
+					type      = "http"
+          path      = "/"
+				  interval  = "5s"
+					timeout   = "5s"
+        }
 
     }
     
@@ -448,6 +468,7 @@ EOH
       }
 
       check {
+        name      = "NGINX ready"
         type      = "http"
         path			= "/health"
         interval  = "5s"
