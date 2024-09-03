@@ -108,7 +108,7 @@ job "hashicups" {
       port = "${var.db_port}"
       # Update to something like attr.unique.network.ip-address if
       # running on local nomad cluster (agent -dev)
-      address  = attr.unique.platform.aws.local-ipv4
+      # address  = attr.unique.platform.aws.local-ipv4
       
       connect {
         sidecar_service {
@@ -120,11 +120,16 @@ job "hashicups" {
         }
       }
       
-      #check {
-      #  type      = "http"
-      #  interval  = "5s"
-      #  timeout   = "5s"
-      # }
+      check {
+        name      = "Database ready"
+        type      = "script"
+        command   = "/usr/bin/pg_isready"
+        args      = ["-d", "${var.db_port}"]
+        interval  = "5s"
+        timeout   = "2s"
+        on_update = "ignore_warnings"
+        task      = "db"
+      }
     }
     
     
@@ -170,25 +175,42 @@ job "hashicups" {
         provider = "consul"
         # port = "product-api"
         port = "${var.product_api_port}"
-        address  = attr.unique.platform.aws.local-ipv4
+        # address  = attr.unique.platform.aws.local-ipv4
 
         connect {
             sidecar_service {
               proxy {
                 transparent_proxy {
                   no_dns = true
+                  exclude_inbound_ports = [var.product_api_port]
                 }
               }
             }
         }
 
 
-        #check {
-				#	type      = "tcp"
-				#	interval  = "5s"
-				#	timeout   = "5s"
-        # }
+        # DB connectivity check 
+      check {
+        name        = "DB connection ready"
+        address_mode = "alloc"
+        type      = "http" 
+        path      = "/health/readyz"
+        interval  = "5s"
+        timeout   = "5s"
+        expose    = true
       }
+
+      # Server ready check
+      check {
+        name        = "Product API ready"
+        address_mode = "alloc"
+        type      = "http" 
+        path      = "/health/livez" 
+        interval  = "5s"
+        timeout   = "5s"
+        expose    = true
+      }
+    }
     
     task "product-api" {
       driver = "docker"
@@ -234,7 +256,7 @@ EOH
       provider = "consul"
       # port = "frontend"
       port = "${var.frontend_port}"
-      address  = attr.unique.platform.aws.local-ipv4
+      # address  = attr.unique.platform.aws.local-ipv4
 
       connect {
         sidecar_service {
@@ -246,11 +268,15 @@ EOH
         }
       }
 
-        # check {
-				# 	type      = "tcp"
-				#	interval  = "5s"
-				#	timeout   = "5s"
-        #}
+        check {
+          name      = "Frontend ready"
+          address_mode = "alloc"
+					type      = "http"
+          path      = "/"
+				  interval  = "5s"
+					timeout   = "5s"
+          expose    = true
+        }
 
     }
     
@@ -301,7 +327,7 @@ EOH
       provider = "consul"
       #port = "payments-api"
       port = "${var.payments_api_port}"
-      address  = attr.unique.platform.aws.local-ipv4
+      # address  = attr.unique.platform.aws.local-ipv4
 
       connect {
         sidecar_service {
@@ -313,11 +339,15 @@ EOH
         }
       }
 
-        # check {
-					# type      = "tcp"
-					# interval  = "5s"
-					# timeout   = "5s"
-        # }
+      check {
+        name      = "Payments API ready"
+        address_mode = "alloc"
+        type      = "http"
+        path			= "/actuator/health"
+        interval  = "5s"
+        timeout   = "5s"
+        expose    = true
+      }
     }
 
     task "payments-api" {
@@ -370,7 +400,7 @@ EOH
         provider = "consul"
         # port = "public-api"
         port = "${var.public_api_port}"
-        address  = attr.unique.platform.aws.local-ipv4
+      # address  = attr.unique.platform.aws.local-ipv4
 
         connect {
             sidecar_service {
@@ -382,12 +412,16 @@ EOH
           }
         }
 
-        # check {
-				# 	type      = "tcp"
-				# 	interval  = "5s"
-				# 	timeout   = "5s"
-        # }
+      check {
+        name      = "Public API ready"
+        address_mode = "alloc"
+        type      = "http"
+        path			= "/health"
+        interval  = "5s"
+        timeout   = "5s"
+        expose    = true
       }
+    }
     task "public-api" {
       driver = "docker"
       constraint {
@@ -445,11 +479,14 @@ EOH
         }
       }
 
-      # check {
-      #   type      = "tcp"
-      #   interval  = "5s"
-      #   timeout   = "5s"
-      # }
+      check {
+        name      = "NGINX ready"
+        type      = "http"
+        path			= "/health"
+        interval  = "5s"
+        timeout   = "5s"
+        expose    = true
+      }
     }
 
     task "nginx" {
@@ -491,6 +528,11 @@ server {
   proxy_set_header Connection 'upgrade';
   proxy_set_header Host $host;
   proxy_cache_bypass $http_upgrade;
+  location = /health {
+    access_log off;
+    add_header 'Content-Type' 'application/json';
+    return 200 '{"status":"UP"}';
+  }
   location / {
     proxy_pass http://frontend_upstream;
   }
