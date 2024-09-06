@@ -32,7 +32,7 @@ Rules = [
 Parents = [
   {
     Kind = "api-gateway"
-    Name = "my-gateway"
+    Name = "api-gateway"
     SectionName = "api-gw-listener"
   }
 ] 

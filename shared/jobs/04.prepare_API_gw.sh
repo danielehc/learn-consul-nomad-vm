@@ -95,7 +95,7 @@ _GW_config_FILE="/tmp/config-gateway-api.hcl"
 
 tee ${_GW_config_FILE} > /dev/null << EOF
 Kind = "api-gateway"
-Name = "gateway-api"
+Name = "api-gateway"
 
 // Each listener configures a port which can be used to access the Consul cluster
 Listeners = [

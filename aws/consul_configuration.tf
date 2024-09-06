@@ -41,6 +41,16 @@ resource "consul_config_entry" "database_default_tcp" {
   })
 }
 
+resource "consul_config_entry" "nginx_default_http" {
+  name = "nginx"
+  kind = "service-defaults"
+
+  config_json = jsonencode({
+  	"Namespace": "default",
+  	"Protocol": "http"
+  })
+}
+
 # # resource "consul_config_entry_service_defaults" "default_http" {
 # #   name = "*"
 # #   namespace = "default"
