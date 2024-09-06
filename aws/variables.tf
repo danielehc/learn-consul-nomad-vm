@@ -98,19 +98,3 @@ variable "client_count" {
 #------------------------------------------------------------------------------#
 # Deprecated Variables
 #------------------------------------------------------------------------------#
-
-variable "retry_join" {
-  description = "Used by Consul to automatically form a cluster."
-  type        = string
-  default     = "provider=aws tag_key=ConsulAutoJoin tag_value=auto-join"
-}
-
-variable "nomad_binary" {
-  description = "URL of a zip file containing a nomad executable to replace the Nomad binaries in the AMI with. Example: https://releases.hashicorp.com/nomad/0.10.0/nomad_0.10.0_linux_amd64.zip"
-  default     = ""
-}
-
-variable "name_prefix" {
-  description = "Prefix used to name various infrastructure components. Alphanumeric characters only."
-  default     = "nomad"
-}

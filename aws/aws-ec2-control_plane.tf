@@ -32,7 +32,7 @@ resource "aws_instance" "server" {
     delete_on_termination = "true"
   }
 
-  user_data = templatefile("${path.module}/../shared/data-scripts/user-data-server_new.sh", {
+  user_data = templatefile("${path.module}/../shared/data-scripts/user-data-server.sh", {
     domain                  = var.domain,
     datacenter              = var.datacenter,
     server_count            = "${var.server_count}",

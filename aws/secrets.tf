@@ -366,8 +366,3 @@ data "consul_acl_token_secret_id" "nomad-public-client-consul-token" {
 # Deprecated secrets
 #-------------------------------------------------------------------------------
 
-resource "random_uuid" "nomad_id" {
-}
-
-resource "random_uuid" "nomad_token" {
-}

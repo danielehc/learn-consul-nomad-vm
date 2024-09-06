@@ -1,0 +1,156 @@
+# Copyright (c) HashiCorp, Inc.
+# SPDX-License-Identifier: MPL-2.0
+
+variable "consul_image" {
+  description = "The Consul image to use"
+  type        = string
+  default     = "hashicorp/consul:1.19.1"
+}
+
+variable "envoy_image" {
+  description = "The Envoy image to use"
+  type        = string
+  default     = "hashicorp/envoy:1.29.7"
+}
+
+variable "namespace" {
+  description = "The Nomad namespace to use, which will bind to a specific Consul role"
+  type        = string
+  default     = "ingress"
+}
+
+job "api-gateway" {
+
+  namespace = var.namespace
+
+  constraint {
+    attribute = "${meta.nodeRole}"
+    operator  = "="
+    value     = "ingress"
+  }
+
+  group "api-gateway" {
+
+    network {
+      mode = "bridge"
+      port "https" {
+        static = 8443
+        to     = 8443
+      }
+    }
+
+    consul {
+      # If the Consul token needs to be for a specific Consul namespace, you'll
+      # need to set the namespace here
+
+      # namespace = "foo"
+    }
+
+    task "setup" {
+      driver = "docker"
+
+      config {
+        image = var.consul_image # image containing Consul
+        command = "/bin/sh"
+        args = [
+          "-c",
+         "consul connect envoy -gateway api -register -deregister-after-critical 10s -service ${NOMAD_JOB_NAME} -admin-bind 0.0.0.0:19000 -ignore-envoy-compatibility -bootstrap > ${NOMAD_ALLOC_DIR}/envoy_bootstrap.json"
+        ]
+      }
+
+      lifecycle {
+        hook = "prestart"
+        sidecar = false
+      }
+
+      identity {
+        name        = "consul_default"
+        aud         = ["consul.io"]
+        file        = true
+        ttl         = "1h"
+
+        # Send a HUP signal when the token file is updated
+        change_mode   = "signal"
+        change_signal = "SIGHUP"
+      }
+      
+      env {
+        # these addresses need to match the specific Nomad node the allocation
+        # is placed on, so it uses interpolation of the node attributes. The
+        # CONSUL_HTTP_TOKEN variable will be set as a result of having template
+        # blocks with Consul enabled.
+        CONSUL_HTTP_ADDR = "http://172.17.0.1:8500"
+        CONSUL_GRPC_ADDR = "172.17.0.1:8502" # xDS port (non-TLS)
+        # CONSUL_HTTP_ADDR = "http://${attr.unique.network.ip-address}:8500"
+        # CONSUL_GRPC_ADDR = "${attr.unique.network.ip-address}:8502" # xDS port (non-TLS)
+
+        # # these file paths are created by template blocks
+        # CONSUL_CLIENT_KEY  = "secrets/certs/consul_client_key.pem"
+        # CONSUL_CLIENT_CERT = "secrets/certs/consul_client.pem"
+        # CONSUL_CACERT      = "secrets/certs/consul_ca.pem"
+      }
+
+#       template {
+#         destination = "secrets/certs/consul_ca.pem"
+#         env         = false
+#         change_mode = "restart"
+#         data        = <<EOF
+# {{- with nomadVar "nomad/jobs/my-api-gateway/gateway/setup" -}}
+# {{ .consul_cacert }}
+# {{- end -}}
+# EOF
+#       }
+
+#       template {
+#         destination = "secrets/certs/consul_client.pem"
+#         env         = false
+#         change_mode = "restart"
+#         data        = <<EOF
+# {{- with nomadVar "nomad/jobs/my-api-gateway/gateway/setup" -}}
+# {{ .consul_client_cert }}
+# {{- end -}}
+# EOF
+#       }
+
+#       template {
+#         destination = "secrets/certs/consul_client_key.pem"
+#         env         = false
+#         change_mode = "restart"
+#         data        = <<EOF
+# {{- with nomadVar "nomad/jobs/my-api-gateway/gateway/setup" -}}
+# {{ .consul_client_key }}
+# {{- end -}}
+# EOF
+#       }
+
+    }
+
+    task "api-gw" {
+      driver = "docker"
+
+      identity {
+        name        = "consul_default"
+        aud         = ["consul.io"]
+        file        = true
+        ttl         = "1h"
+
+        # Send a HUP signal when the token file is updated
+        change_mode   = "signal"
+        change_signal = "SIGHUP"
+      }
+      
+      config {
+        image = var.envoy_image # image containing Envoy
+        args = [
+          "--config-path",
+          "${NOMAD_ALLOC_DIR}/envoy_bootstrap.json",
+          "--log-level",
+          "${meta.connect.log_level}",
+          "--concurrency",
+          "${meta.connect.proxy_concurrency}",
+          "--disable-hot-restart"
+        ]
+      }
+    }
+  }
+}

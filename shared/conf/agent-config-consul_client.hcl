@@ -41,7 +41,7 @@ connect {
 }
 
 # Addresses and ports
-client_addr = "127.0.0.1"
+client_addr = "127.0.0.1 _EXTRA_CONSUL_CLIENT_ADDR"
 bind_addr   = "_CONSUL_BIND_ADDR"
 
 # Ports

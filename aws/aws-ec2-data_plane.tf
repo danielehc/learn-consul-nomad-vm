@@ -40,7 +40,7 @@ resource "aws_instance" "client" {
     delete_on_termination = "true"
   }
 
-  user_data = templatefile("${path.module}/../shared/data-scripts/user-data-client_new.sh", {
+  user_data = templatefile("${path.module}/../shared/data-scripts/user-data-client.sh", {
     domain                  = var.domain,
     datacenter              = var.datacenter,
     consul_node_name        = "consul-client-${count.index}",
@@ -103,7 +103,7 @@ resource "aws_instance" "public_client" {
     delete_on_termination = "true"
   }
 
-  user_data = templatefile("${path.module}/../shared/data-scripts/user-data-client_new.sh", {
+  user_data = templatefile("${path.module}/../shared/data-scripts/user-data-client.sh", {
     domain                  = var.domain,
     datacenter              = var.datacenter,
     consul_node_name        = "consul-public-client-${count.index}",

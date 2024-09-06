@@ -64,6 +64,17 @@ region                    = "us-east-1"
 ami                       = "ami-0b2d23848882ae42d"
 ```
 
+### Setup Consul server name
+
+The Terraform code uses Consul Terraform provider to create Consul ACL tokens. 
+Consul is configured with TLS encryption and to trust the certificate provided by the Consul servers the Consul Terraform provider requires the following environment variable to be set.
+
+```
+export CONSUL_TLS_SERVER_NAME="consul.dc1.global"
+```
+
+Change `dc1` and `global` with the values you set for `datacenter` and `domain` in `variables.hcl`.
+
 ### Deploy the datacenter
 
 Initialize the Terraform configuration to download the necessary providers and modules.
@@ -76,6 +87,30 @@ Provision the resources and provide the variables file with the `-var-file` flag
 
 ```
 terraform apply -var-file=variables.hcl
+```
+
+From the Terraform output you can retrieve the links to connect to your newly created datacenter.
+
+```
+Apply complete! Resources: 85 added, 0 changed, 0 destroyed.
+
+Outputs:
+
+Configure-local-environment = "source ./datacenter.env"
+Consul_UI = "https://52.202.91.53:8443"
+Consul_UI_token = "8d964e70-9bfa-f410-9d6b-0e0ccf7292b4"
+IP_Addresses = <<EOT
+
+Client public IPs: 3.83.145.4, 3.83.107.24, 3.95.182.36
+
+Server public IPs: 52.202.91.53, 54.174.81.1, 3.83.84.52
+
+The Consul UI can be accessed at https://52.202.91.53:8443
+with the token: 8d964e70-9bfa-f410-9d6b-0e0ccf7292b4
+
+EOT
+Nomad_UI = "https://52.202.91.53:4646"
+Nomad_UI_token = <sensitive>
 ```
 
 ## Cleanup steps
