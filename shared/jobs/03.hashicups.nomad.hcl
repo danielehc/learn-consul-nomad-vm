@@ -112,7 +112,7 @@ job "hashicups" {
         port = "db"
         address  = attr.unique.platform.aws.local-ipv4
         check {
-          name      = "database check"
+          name      = "Database Ready"
           type      = "script"
           command   = "/usr/bin/pg_isready"
           args      = ["-d", "${var.db_port}"]
@@ -351,6 +351,7 @@ job "hashicups" {
         port = "nginx"
         address  = attr.unique.platform.aws.public-hostname
         check {
+          name      = "NGINX ready"
 					type      = "http"
           path			= "/health"
 					interval  = "5s"

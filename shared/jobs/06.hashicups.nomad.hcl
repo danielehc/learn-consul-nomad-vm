@@ -98,21 +98,12 @@ job "hashicups" {
 
     network {
       mode = "bridge"
-      # port "db" {
-      #   static = var.db_port
-      # }
-      # dns {
-      # 	servers = ["172.17.0.1"] 
-      # }
     }
     
     service {
       name = "database"
       provider = "consul"
-      # port = "db"
       port = "${var.db_port}"
-      # Update to something like attr.unique.network.ip-address if
-      # running on local nomad cluster (agent -dev)
       address  = attr.unique.platform.aws.local-ipv4
       
       connect {
@@ -161,20 +152,12 @@ job "hashicups" {
 
     network {
       mode = "bridge"
-      # port "product-api" {
-      #   static = var.product_api_port
-      # }
-      # dns {
-      # 	servers = ["172.17.0.1"] 
-      # }
     }
     
     service {
       name = "product-api"
       provider = "consul"
-      # port = "product-api"
       port = "${var.product_api_port}"
-      # address  = attr.unique.platform.aws.local-ipv4
 
       connect {
         sidecar_service {
@@ -223,13 +206,9 @@ job "hashicups" {
         image   = "hashicorpdemoapp/product-api:${var.product_api_version}"
         ports = ["${var.product_api_port}"]
       }
-      template {
-        data        = <<EOH
-DB_CONNECTION="host=127.0.0.1 port=${var.db_port} user=${var.postgres_user} password=${var.postgres_password} dbname=${var.postgres_db} sslmode=disable"
-BIND_ADDRESS = "{{ env "NOMAD_IP_product-api" }}:${var.product_api_port}"
-EOH
-        destination = "local/env.txt"
-        env         = true
+      env {
+        DB_CONNECTION = "host=127.0.0.1 port=${var.db_port} user=${var.postgres_user} password=${var.postgres_password} dbname=${var.postgres_db} sslmode=disable"
+        BIND_ADDRESS = ":${var.product_api_port}"
       }
     }
   }
@@ -240,20 +219,12 @@ EOH
 
     network {
       mode = "bridge"
-      # port "payments-api" {
-      #   static = var.payments_api_port
-      # }
-      # dns {
-      # 	servers = ["172.17.0.1"] 
-      # }
     }
 
     service {
       name = "payments-api"
       provider = "consul"
-      #port = "payments-api"
       port = "${var.payments_api_port}"
-      # address  = attr.unique.platform.aws.local-ipv4
 
       connect {
         sidecar_service {}
@@ -306,20 +277,12 @@ EOH
 
     network {
       mode = "bridge"
-      # port "public-api" {
-      #   static = var.public_api_port
-      # }
-      # dns {
-      # 	servers = ["172.17.0.1"] 
-      # }
     }
     
     service {
       name = "public-api"
       provider = "consul"
-      # port = "public-api"
       port = "${var.public_api_port}"
-      # address  = attr.unique.platform.aws.local-ipv4
 
       connect {
         sidecar_service {
@@ -361,14 +324,10 @@ EOH
         image   = "hashicorpdemoapp/public-api:${var.public_api_version}"
         ports = ["${var.public_api_port}"] 
       }
-      template {
-        data        = <<EOH
-BIND_ADDRESS = ":${var.public_api_port}"
-PRODUCT_API_URI = "http://127.0.0.1:${var.product_api_port}"
-PAYMENT_API_URI = "http://127.0.0.1:${var.payments_api_port}"
-EOH
-        destination = "local/env.txt"
-        env         = true
+      env {
+        BIND_ADDRESS = ":${var.public_api_port}"
+        PRODUCT_API_URI = "http://127.0.0.1:${var.product_api_port}"
+        PAYMENT_API_URI = "http://127.0.0.1:${var.payments_api_port}"
       }
     }
   }
@@ -377,8 +336,6 @@ EOH
     
     count = 1
 
-    # Scaling at the group level is horizontal
-    # and controls the count
     scaling {
       enabled = true
       min     = 1
@@ -392,7 +349,6 @@ EOH
           source = "nomad-apm"
           query = "max_cpu-allocated"
 
-          # Scale if max cpu usage is over 75% (70% +/- 5%)
           strategy "target-value" {
             driver = "target-value"
             target = 70
@@ -405,20 +361,12 @@ EOH
 
     network {
       mode = "bridge"
-      # port "frontend" {
-      #   static = var.frontend_port
-      # }
-      # dns {
-      # 	servers = ["172.17.0.1"] 
-      # }
     }
     
     service {
       name = "frontend"
       provider = "consul"
-      # port = "frontend"
       port = "${var.frontend_port}"
-      # address  = attr.unique.platform.aws.local-ipv4
 
       connect {
         sidecar_service {}
@@ -446,19 +394,14 @@ EOH
       meta {
         service = "frontend"
       }
-
-      template {
-        data        = <<EOH
-NEXT_PUBLIC_PUBLIC_API_URL="/"
-NEXT_PUBLIC_FOOTER_FLAG="HashiCups Frontend instance {{ env "NOMAD_ALLOC_INDEX" }}"
-PORT="${var.frontend_port}"
-EOH
-        destination = "local/env.txt"
-        env         = true
-      }
       config {
         image   = "hashicorpdemoapp/frontend:${var.frontend_version}"
         ports = ["${var.frontend_port}"]
+      }
+      env {
+        NEXT_PUBLIC_PUBLIC_API_URL= "/"
+        NEXT_PUBLIC_FOOTER_FLAG="HashiCups instance ${NOMAD_ALLOC_INDEX}"
+        PORT="${var.frontend_port}"
       }
     }
   }
@@ -514,7 +457,6 @@ EOH
         operator  = "="
         value     = "ingress"
       }
-      
       meta {
         service = "nginx-reverse-proxy"
       }
@@ -532,7 +474,6 @@ EOH
 proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=STATIC:10m inactive=7d use_temp_path=off;
 upstream frontend_upstream {
     server 127.0.0.1:${var.frontend_port};
-    # server frontend.virtual.global;
 }
 server {
   listen ${var.nginx_port};
@@ -552,7 +493,6 @@ server {
   }
   location /api {
     proxy_pass http://127.0.0.1:${var.public_api_port};
-    # proxy_pass http://public-api.virtual.global;
   }
   location = /health {
     access_log off;
