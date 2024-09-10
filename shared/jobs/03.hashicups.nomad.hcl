@@ -99,20 +99,13 @@ job "hashicups" {
       	servers = ["172.17.0.1"] 
       }
     }
-    task "db" {
-      driver = "docker"
-      constraint {
-        attribute = "${meta.nodeRole}"
-        operator  = "!="
-        value     = "ingress"
-      }
-      service {
+    service {
         name = "database"
         provider = "consul"
         port = "db"
         address  = attr.unique.platform.aws.local-ipv4
         check {
-          name      = "Database Ready"
+          name      = "Database ready"
           type      = "script"
           command   = "/usr/bin/pg_isready"
           args      = ["-d", "${var.db_port}"]
@@ -122,6 +115,15 @@ job "hashicups" {
           task      = "db"
         }
       }
+    
+    task "db" {
+      driver = "docker"
+      constraint {
+        attribute = "${meta.nodeRole}"
+        operator  = "!="
+        value     = "ingress"
+      }
+
       meta {
         service = "database"
       }
@@ -149,6 +151,30 @@ job "hashicups" {
       	servers = ["172.17.0.1"] 
       }
     }
+    service {
+        name = "product-api"
+        provider = "consul"
+        port = "product-api"
+        address  = attr.unique.platform.aws.local-ipv4
+        # DB connectivity check 
+        check {
+          name        = "DB connection ready"
+					type      = "http" 
+          path      = "/health/readyz" 
+					interval  = "5s"
+					timeout   = "5s"
+        }
+
+        # Server ready check
+        check {
+          name        = "Product API ready"
+          type      = "http" 
+          path      = "/health/livez" 
+          interval  = "5s"
+          timeout   = "5s"
+        }
+      }
+    
     task "product-api" {
       driver = "docker"
       constraint {
@@ -156,18 +182,7 @@ job "hashicups" {
         operator  = "!="
         value     = "ingress"
       }
-      service {
-        name = "product-api"
-        provider = "consul"
-        port = "product-api"
-        address  = attr.unique.platform.aws.local-ipv4
-        check {
-					type      = "http" 
-          path      = "/health/readyz" 
-					interval  = "5s"
-					timeout   = "5s"
-        }
-      }
+
       meta {
         service = "product-api"
       }
@@ -194,6 +209,21 @@ job "hashicups" {
       	servers = ["172.17.0.1"] 
       }
     }
+
+    service {
+        name = "payments-api"
+        provider = "consul"
+        port = "payments-api"
+        address  = attr.unique.platform.aws.local-ipv4
+        check {
+          name      = "Payments API ready"
+					type      = "http"
+          path			= "/actuator/health"
+					interval  = "5s"
+					timeout   = "5s"
+        }
+      }
+    
     task "payments-api" {
       driver = "docker"
       constraint {
@@ -201,21 +231,11 @@ job "hashicups" {
         operator  = "!="
         value     = "ingress"
       }
-      service {
-        name = "payments-api"
-        provider = "consul"
-        port = "payments-api"
-        address  = attr.unique.platform.aws.local-ipv4
-        check {
-					type      = "http"
-          path			= "/actuator/health"
-					interval  = "5s"
-					timeout   = "5s"
-        }
-      }
+
       meta {
         service = "payments-api"
       }
+      
       config {
         image   = "hashicorpdemoapp/payments:${var.payments_version}"
         ports = ["payments-api"]
@@ -247,6 +267,20 @@ job "hashicups" {
       	servers = ["172.17.0.1"] 
       }
     }
+    service {
+        name = "public-api"
+        provider = "consul"
+        port = "public-api"
+        address  = attr.unique.platform.aws.local-ipv4
+        check {
+          name      = "Public API ready"
+					type      = "http"
+          path			= "/health"
+					interval  = "5s"
+					timeout   = "5s"
+        }
+      }
+
     task "public-api" {
       driver = "docker"
       constraint {
@@ -254,18 +288,7 @@ job "hashicups" {
         operator  = "!="
         value     = "ingress"
       }
-      service {
-        name = "public-api"
-        provider = "consul"
-        port = "public-api"
-        address  = attr.unique.platform.aws.local-ipv4
-        check {
-					type      = "http"
-          path			= "/health"
-					interval  = "5s"
-					timeout   = "5s"
-        }
-      }
+
       meta {
         service = "public-api"
       }
@@ -293,6 +316,20 @@ job "hashicups" {
       	servers = ["172.17.0.1"] 
       }
     }
+    service {
+        name = "frontend"
+        provider = "consul"
+        port = "frontend"
+        address  = attr.unique.platform.aws.local-ipv4
+        check {
+          name      = "Frontend ready"
+					type      = "http"
+          path      = "/"
+					interval  = "5s"
+					timeout   = "5s"
+        }
+      }
+    
     task "frontend" {
       driver = "docker"
       constraint {
@@ -300,17 +337,7 @@ job "hashicups" {
         operator  = "!="
         value     = "ingress"
       }
-      service {
-        name = "frontend"
-        provider = "consul"
-        port = "frontend"
-        address  = attr.unique.platform.aws.local-ipv4
-        check {
-					type      = "tcp"
-					interval  = "5s"
-					timeout   = "5s"
-        }
-      }
+
       meta {
         service = "frontend"
       }
@@ -338,14 +365,7 @@ job "hashicups" {
       	servers = ["172.17.0.1"] 
       }
     }
-    task "nginx" {
-      driver = "docker"
-      constraint {
-        attribute = "${meta.nodeRole}"
-        operator  = "="
-        value     = "ingress"
-      }
-      service {
+    service {
         name = "nginx"
         provider = "consul"
         port = "nginx"
@@ -357,6 +377,14 @@ job "hashicups" {
 					interval  = "5s"
 					timeout   = "5s"
         }
+      }
+
+    task "nginx" {
+      driver = "docker"
+      constraint {
+        attribute = "${meta.nodeRole}"
+        operator  = "="
+        value     = "ingress"
       }
       meta {
         service = "nginx-reverse-proxy"

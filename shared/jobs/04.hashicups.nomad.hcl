@@ -117,7 +117,6 @@ job "hashicups" {
       }
     }
     
-    
     task "db" {
       driver = "docker"
       constraint {
@@ -352,7 +351,6 @@ job "hashicups" {
 				  interval  = "5s"
 					timeout   = "5s"
         }
-
     }
     
     task "frontend" {
