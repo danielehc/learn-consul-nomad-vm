@@ -118,31 +118,10 @@ job "hashicups" {
       port "nginx" {
         static = var.nginx_port
       }
-      dns {
-      	servers = ["172.17.0.1"] 
-      }
     }
 
     task "db" {
       driver = "docker"
-      service {
-        name = "database"
-        provider = "consul"
-        port = "db"
-        # Update to something like attr.unique.network.ip-address if
-        # running on local nomad cluster (agent -dev)
-        address  = attr.unique.platform.aws.local-ipv4
-        check {
-          name      = "database check"
-          type      = "script"
-          command   = "/usr/bin/pg_isready"
-          args      = ["-d", "${var.db_port}"]
-          interval  = "5s"
-          timeout   = "2s"
-          on_update = "ignore_warnings"
-          task      = "db"
-        }
-      }
       meta {
         service = "database"
       }
@@ -159,18 +138,6 @@ job "hashicups" {
 
     task "product-api" {
       driver = "docker"
-      service {
-        name = "product-api"
-        provider = "consul"
-        port = "product-api"
-        address  = attr.unique.platform.aws.local-ipv4
-        check {
-					type      = "http" 
-          path      = "/health/readyz" 
-					interval  = "5s"
-					timeout   = "5s"
-        }
-      }
       meta {
         service = "product-api"
       }
@@ -178,30 +145,14 @@ job "hashicups" {
         image   = "hashicorpdemoapp/product-api:${var.product_api_version}"
         ports = ["product-api"]
       }
-      template {
-        data        = <<EOH
-DB_CONNECTION="host=database.service.dc1.global port=${var.db_port} user=${var.postgres_user} password=${var.postgres_password} dbname=${var.postgres_db} sslmode=disable"
-BIND_ADDRESS = "{{ env "NOMAD_IP_product-api" }}:${var.product_api_port}"
-EOH
-        destination = "local/env.txt"
-        env         = true
+      env {
+        DB_CONNECTION = "host=${NOMAD_IP_db} port=${var.db_port} user=${var.postgres_user} password=${var.postgres_password} dbname=${var.postgres_db} sslmode=disable"
+        BIND_ADDRESS = ":${var.product_api_port}"
       }
     }
 
     task "payments-api" {
       driver = "docker"
-      service {
-        name = "payments-api"
-        provider = "consul"
-        port = "payments-api"
-        address  = attr.unique.platform.aws.local-ipv4
-        check {
-					type      = "http"
-          path			= "/actuator/health"
-					interval  = "5s"
-					timeout   = "5s"
-        }
-      }
       meta {
         service = "payments-api"
       }
@@ -225,18 +176,6 @@ EOH
 
     task "public-api" {
       driver = "docker"
-      service {
-        name = "public-api"
-        provider = "consul"
-        port = "public-api"
-        address  = attr.unique.platform.aws.local-ipv4
-        check {
-					type      = "http"
-          path			= "/health"
-					interval  = "5s"
-					timeout   = "5s"
-        }
-      }
       meta {
         service = "public-api"
       }
@@ -244,62 +183,31 @@ EOH
         image   = "hashicorpdemoapp/public-api:${var.public_api_version}"
         ports = ["public-api"] 
       }
-      template {
-        data        = <<EOH
-BIND_ADDRESS = ":${var.public_api_port}"
-PRODUCT_API_URI = "http://product-api.service.dc1.global:${var.product_api_port}"
-PAYMENT_API_URI = "http://payments-api.service.dc1.global:${var.payments_api_port}"
-EOH
-        destination = "local/env.txt"
-        env         = true
+      env {
+        BIND_ADDRESS = ":${var.public_api_port}"
+        PRODUCT_API_URI = "http://${NOMAD_ADDR_product-api}"
+        PAYMENT_API_URI = "http://${NOMAD_ADDR_payments-api}"
       }
     }
 
     task "frontend" {
       driver = "docker"
-      service {
-        name = "frontend"
-        provider = "consul"
-        port = "frontend"
-        address  = attr.unique.platform.aws.local-ipv4
-        check {
-					type      = "tcp"
-					interval  = "5s"
-					timeout   = "5s"
-        }
-      }
       meta {
         service = "frontend"
-      }
-      template {
-        data        = <<EOH
-NEXT_PUBLIC_PUBLIC_API_URL="/"
-NEXT_PUBLIC_FOOTER_FLAG="HashiCups instance {{ env "NOMAD_ALLOC_INDEX" }}"
-PORT="${var.frontend_port}"
-EOH
-        destination = "local/env.txt"
-        env         = true
       }
       config {
         image   = "hashicorpdemoapp/frontend:${var.frontend_version}"
         ports = ["frontend"]
       }
+      env {
+        NEXT_PUBLIC_PUBLIC_API_URL= "/"
+        NEXT_PUBLIC_FOOTER_FLAG="HashiCups instance ${NOMAD_ALLOC_INDEX}"
+        PORT="${var.frontend_port}"
+      }
     }
 
     task "nginx" {
       driver = "docker"
-      service {
-        name = "nginx"
-        provider = "consul"
-        port = "nginx"
-        address  = attr.unique.platform.aws.public-hostname
-        check {
-					type      = "http"
-          path			= "/health"
-					interval  = "5s"
-					timeout   = "5s"
-        }
-      }
       meta {
         service = "nginx-reverse-proxy"
       }
@@ -316,7 +224,7 @@ EOH
         data =  <<EOF
 proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=STATIC:10m inactive=7d use_temp_path=off;
 upstream frontend_upstream {
-    server frontend.service.dc1.global:${var.frontend_port};
+    server {{ env "NOMAD_IP_nginx" }}:${var.frontend_port};
 }
 server {
   listen ${var.nginx_port};
@@ -336,12 +244,7 @@ server {
     proxy_pass http://frontend_upstream;
   }
   location /api {
-    proxy_pass http://public-api.service.dc1.global:${var.public_api_port};
-  }
-  location = /health {
-    access_log off;
-    add_header 'Content-Type' 'application/json';
-    return 200 '{"status":"UP"}';
+    proxy_pass http://{{ env "NOMAD_IP_public_api" }}:${var.public_api_port};
   }
 }
         EOF
