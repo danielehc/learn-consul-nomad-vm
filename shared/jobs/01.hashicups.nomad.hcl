@@ -228,7 +228,6 @@ upstream frontend_upstream {
 }
 server {
   listen ${var.nginx_port};
-  # server_name public-api.service.dc1.global;
   server_name {{ env "NOMAD_IP_nginx" }};
   server_tokens off;
   gzip on;
