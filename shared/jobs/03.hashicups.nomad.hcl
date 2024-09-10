@@ -110,8 +110,6 @@ job "hashicups" {
         name = "database"
         provider = "consul"
         port = "db"
-        # Update to something like attr.unique.network.ip-address if
-        # running on local nomad cluster (agent -dev)
         address  = attr.unique.platform.aws.local-ipv4
         check {
           name      = "database check"
@@ -177,13 +175,9 @@ job "hashicups" {
         image   = "hashicorpdemoapp/product-api:${var.product_api_version}"
         ports = ["product-api"]
       }
-      template {
-        data        = <<EOH
-DB_CONNECTION="host=database.service.dc1.global port=${var.db_port} user=${var.postgres_user} password=${var.postgres_password} dbname=${var.postgres_db} sslmode=disable"
-BIND_ADDRESS = "{{ env "NOMAD_IP_product-api" }}:${var.product_api_port}"
-EOH
-        destination = "local/env.txt"
-        env         = true
+      env {
+        DB_CONNECTION = "host=database.service.dc1.global port=${var.db_port} user=${var.postgres_user} password=${var.postgres_password} dbname=${var.postgres_db} sslmode=disable"
+        BIND_ADDRESS = ":${var.product_api_port}"
       }
     }
   }
@@ -279,14 +273,10 @@ EOH
         image   = "hashicorpdemoapp/public-api:${var.public_api_version}"
         ports = ["public-api"] 
       }
-      template {
-        data        = <<EOH
-BIND_ADDRESS = ":${var.public_api_port}"
-PRODUCT_API_URI = "http://product-api.service.dc1.global:${var.product_api_port}"
-PAYMENT_API_URI = "http://payments-api.service.dc1.global:${var.payments_api_port}"
-EOH
-        destination = "local/env.txt"
-        env         = true
+      env {
+        BIND_ADDRESS = ":${var.public_api_port}"
+        PRODUCT_API_URI = "http://product-api.service.dc1.global:${var.product_api_port}"
+        PAYMENT_API_URI = "http://payments-api.service.dc1.global:${var.payments_api_port}"
       }
     }
   }
@@ -324,19 +314,14 @@ EOH
       meta {
         service = "frontend"
       }
-      template {
-        data        = <<EOH
-# NEXT_PUBLIC_PUBLIC_API_URL="http://public-api.service.dc1.global:${var.public_api_port}"
-NEXT_PUBLIC_PUBLIC_API_URL="/"
-NEXT_PUBLIC_FOOTER_FLAG="HashiCups Frontend instance {{ env "NOMAD_ALLOC_INDEX" }}"
-PORT="${var.frontend_port}"
-EOH
-        destination = "local/env.txt"
-        env         = true
-      }
       config {
         image   = "hashicorpdemoapp/frontend:${var.frontend_version}"
         ports = ["frontend"]
+      }
+      env {
+        NEXT_PUBLIC_PUBLIC_API_URL= "/"
+        NEXT_PUBLIC_FOOTER_FLAG="HashiCups instance ${NOMAD_ALLOC_INDEX}"
+        PORT="${var.frontend_port}"
       }
     }
   }
@@ -392,7 +377,6 @@ upstream frontend_upstream {
 }
 server {
   listen ${var.nginx_port};
-  # server_name public-api.service.dc1.global;
   server_name {{ env "NOMAD_IP_nginx" }};
   server_tokens off;
   gzip on;
