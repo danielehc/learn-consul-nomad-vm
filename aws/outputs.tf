@@ -28,8 +28,8 @@ output "Nomad_UI" {
 }
 
 output "Nomad_UI_token" {
-  value = nomad_acl_token.nomad-user-token.secret_id
-  sensitive = true
+  value = random_uuid.nomad_mgmt_token.result
+  # sensitive = true
 }
 ################################################################################
 ################################################################################

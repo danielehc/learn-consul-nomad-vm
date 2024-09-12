@@ -1,3 +1,7 @@
+#-------------------------------------------------------------------------------
+# Job Variables
+#-------------------------------------------------------------------------------
+
 variable "datacenters" {
   description = "A list of datacenters in the region which are eligible for task placement."
   type        = list(string)
@@ -80,12 +84,18 @@ variable "db_port" {
   default = 5432
 }
 
-# Begin Job Spec
+### ----------------------------------------------------------------------------
+###  Job "HashiCups"
+### ----------------------------------------------------------------------------
 
 job "hashicups" {
   type   = "service"
   region = var.region
   datacenters = var.datacenters
+
+  ## ---------------------------------------------------------------------------
+  ##  Group "Database"
+  ## ---------------------------------------------------------------------------
 
   group "db" {
 
@@ -116,6 +126,10 @@ job "hashicups" {
         }
       }
     
+    # --------------------------------------------------------------------------
+    #  Task "Database"
+    # --------------------------------------------------------------------------
+
     task "db" {
       driver = "docker"
       constraint {
@@ -138,6 +152,10 @@ job "hashicups" {
       }
     }
   }
+
+  ## ---------------------------------------------------------------------------
+  ##  Group "Product API"
+  ## ---------------------------------------------------------------------------
 
   group "product-api" {
 
@@ -175,6 +193,10 @@ job "hashicups" {
         }
       }
     
+    # --------------------------------------------------------------------------
+    #  Task "Product API"
+    # --------------------------------------------------------------------------
+
     task "product-api" {
       driver = "docker"
       constraint {
@@ -196,6 +218,10 @@ job "hashicups" {
       }
     }
   }
+
+  ## ---------------------------------------------------------------------------
+  ##  Group "Payments API"
+  ## ---------------------------------------------------------------------------
 
   group "payments" {
 
@@ -224,6 +250,10 @@ job "hashicups" {
         }
       }
     
+    # --------------------------------------------------------------------------
+    #  Task "Payments API"
+    # --------------------------------------------------------------------------
+
     task "payments-api" {
       driver = "docker"
       constraint {
@@ -255,6 +285,10 @@ job "hashicups" {
     }
   }
 
+  ## ---------------------------------------------------------------------------
+  ##  Group "Public API"
+  ## ---------------------------------------------------------------------------
+
   group "public-api" {
 
     count = 1
@@ -281,6 +315,10 @@ job "hashicups" {
         }
       }
 
+    # --------------------------------------------------------------------------
+    #  Task "Public API"
+    # --------------------------------------------------------------------------
+
     task "public-api" {
       driver = "docker"
       constraint {
@@ -303,6 +341,10 @@ job "hashicups" {
       }
     }
   }
+
+  ## ---------------------------------------------------------------------------
+  ##  Group "Frontend"
+  ## ---------------------------------------------------------------------------
 
   group "frontend" {
     
@@ -330,6 +372,10 @@ job "hashicups" {
         }
       }
     
+    # --------------------------------------------------------------------------
+    #  Task "Frontend"
+    # --------------------------------------------------------------------------
+
     task "frontend" {
       driver = "docker"
       constraint {
@@ -347,12 +393,16 @@ job "hashicups" {
       }
       env {
         NEXT_PUBLIC_PUBLIC_API_URL= "/"
-        NEXT_PUBLIC_FOOTER_FLAG="HashiCups instance ${NOMAD_ALLOC_INDEX}"
+        NEXT_PUBLIC_FOOTER_FLAG="Frontend instance ${NOMAD_ALLOC_INDEX}"
         PORT="${var.frontend_port}"
       }
     }
   }
   
+  ## ---------------------------------------------------------------------------
+  ##  Group "NGINX"
+  ## ---------------------------------------------------------------------------
+
   group "nginx" {
 
     count = 1
@@ -379,6 +429,10 @@ job "hashicups" {
         }
       }
 
+    # --------------------------------------------------------------------------
+    #  Task "NGINX"
+    # --------------------------------------------------------------------------
+
     task "nginx" {
       driver = "docker"
       constraint {
@@ -400,35 +454,35 @@ job "hashicups" {
       }
       template {
         data =  <<EOF
-proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=STATIC:10m inactive=7d use_temp_path=off;
-upstream frontend_upstream {
-    server frontend.service.dc1.global:${var.frontend_port};
-}
-server {
-  listen ${var.nginx_port};
-  server_name {{ env "NOMAD_IP_nginx" }};
-  server_tokens off;
-  gzip on;
-  gzip_proxied any;
-  gzip_comp_level 4;
-  gzip_types text/css application/javascript image/svg+xml;
-  proxy_http_version 1.1;
-  proxy_set_header Upgrade $http_upgrade;
-  proxy_set_header Connection 'upgrade';
-  proxy_set_header Host $host;
-  proxy_cache_bypass $http_upgrade;
-  location / {
-    proxy_pass http://frontend_upstream;
-  }
-  location /api {
-    proxy_pass http://public-api.service.dc1.global:${var.public_api_port};
-  }
-  location = /health {
-    access_log off;
-    add_header 'Content-Type' 'application/json';
-    return 200 '{"status":"UP"}';
-  }
-}
+          proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=STATIC:10m inactive=7d use_temp_path=off;
+          upstream frontend_upstream {
+              server frontend.service.dc1.global:${var.frontend_port};
+          }
+          server {
+            listen ${var.nginx_port};
+            server_name {{ env "NOMAD_IP_nginx" }};
+            server_tokens off;
+            gzip on;
+            gzip_proxied any;
+            gzip_comp_level 4;
+            gzip_types text/css application/javascript image/svg+xml;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection 'upgrade';
+            proxy_set_header Host $host;
+            proxy_cache_bypass $http_upgrade;
+            location / {
+              proxy_pass http://frontend_upstream;
+            }
+            location /api {
+              proxy_pass http://public-api.service.dc1.global:${var.public_api_port};
+            }
+            location = /health {
+              access_log off;
+              add_header 'Content-Type' 'application/json';
+              return 200 '{"status":"UP"}';
+            }
+          }
         EOF
         destination = "local/default.conf"
       }

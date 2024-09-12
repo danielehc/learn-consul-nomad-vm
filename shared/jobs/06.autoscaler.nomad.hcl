@@ -1,39 +1,64 @@
+### ----------------------------------------------------------------------------
+###  Job Autoscaler
+### ----------------------------------------------------------------------------
+
 job "autoscaler" {
-  datacenters = ["dc1"]
+
+  ## ---------------------------------------------------------------------------
+  ##  Group Autoscaler
+  ## ---------------------------------------------------------------------------
 
   group "autoscaler" {
-    count = 1
 
     network {
+      port "http" {}
       dns {
       	servers = ["172.17.0.1"] 
       }
     }
 
+    # --------------------------------------------------------------------------
+    #  Task Autoscaler
+    # --------------------------------------------------------------------------
+
     task "autoscaler" {
+
       driver = "docker"
 
       config {
         image   = "hashicorp/nomad-autoscaler:0.4.5"
         command = "nomad-autoscaler"
-        args    = ["agent", "-config", "${NOMAD_TASK_DIR}/config.hcl"]
+        ports   = ["http"]
+
+        args = [
+          "agent",
+          "-config",
+          "${NOMAD_TASK_DIR}/config.hcl",
+          "-http-bind-address",
+          "0.0.0.0",
+          "-http-bind-port",
+          "${NOMAD_PORT_http}",
+        ]
       }
 
-      # TODO: Externalize nomad token
+      identity {
+        env = true
+      }
+
       template {
         data = <<EOF
-plugin_dir = "/plugins"
-log_level = "info"
+          log_level = "debug"
+          plugin_dir = "/plugins"
 
-nomad {
-  address = "https://nomad.service.dc1.global:4646"
-  token = "<NOMAD_TOKEN_VALUE>"
-  skip_verify = true
-}
-apm "nomad" {
-  driver = "nomad-apm"
-}
-          EOF
+          nomad {
+            address = "https://nomad.service.dc1.global:4646"
+            skip_verify = "true"
+          }
+
+          apm "nomad" {
+            driver = "nomad-apm"
+          }
+        EOF
 
         destination = "${NOMAD_TASK_DIR}/config.hcl"
       }

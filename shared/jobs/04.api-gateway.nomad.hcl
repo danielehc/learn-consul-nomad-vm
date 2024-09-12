@@ -1,5 +1,6 @@
-# Copyright (c) HashiCorp, Inc.
-# SPDX-License-Identifier: MPL-2.0
+#-------------------------------------------------------------------------------
+# Job Variables
+#-------------------------------------------------------------------------------
 
 variable "consul_image" {
   description = "The Consul image to use"
@@ -19,6 +20,10 @@ variable "namespace" {
   default     = "ingress"
 }
 
+### ----------------------------------------------------------------------------
+###  Job "API Gateway"
+### ----------------------------------------------------------------------------
+
 job "api-gateway" {
 
   namespace = var.namespace
@@ -28,6 +33,10 @@ job "api-gateway" {
     operator  = "="
     value     = "ingress"
   }
+
+  ## ---------------------------------------------------------------------------
+  ##  Group "API Gateway"
+  ## ---------------------------------------------------------------------------
 
   group "api-gateway" {
 
@@ -46,8 +55,21 @@ job "api-gateway" {
       # namespace = "foo"
     }
 
+    # service {
+    #   name = "api-gateway"
+    #   address = attr.unique.platform.aws.public-ipv4
+    # }
+
+    # --------------------------------------------------------------------------
+    #  Task "Setup"
+    # --------------------------------------------------------------------------
+
     task "setup" {
       driver = "docker"
+
+      # service {
+      #   tags = ["api-gateway"]
+      # }
 
       config {
         image = var.consul_image # image containing Consul
@@ -63,60 +85,41 @@ job "api-gateway" {
         sidecar = false
       }
 
-      env {
-        # these addresses need to match the specific Nomad node the allocation
-        # is placed on, so it uses interpolation of the node attributes. The
-        # CONSUL_HTTP_TOKEN variable will be set as a result of having template
-        # blocks with Consul enabled.
-        # CONSUL_HTTP_ADDR = "http://172.17.0.1:8500"
-        # CONSUL_GRPC_ADDR = "172.17.0.1:8502" # xDS port (non-TLS)
-        CONSUL_HTTP_ADDR = "http://${attr.unique.network.ip-address}:8500"
-        CONSUL_GRPC_ADDR = "${attr.unique.network.ip-address}:8502" # xDS port (non-TLS)
+      identity {
+        name        = "consul_default"
+        aud         = ["consul.io"]
+        file        = true
+        ttl         = "1h"
 
-        # # these file paths are created by template blocks
-        # CONSUL_CLIENT_KEY  = "secrets/certs/consul_client_key.pem"
-        # CONSUL_CLIENT_CERT = "secrets/certs/consul_client.pem"
-        # CONSUL_CACERT      = "secrets/certs/consul_ca.pem"
+        # Send a HUP signal when the token file is updated
+        change_mode   = "signal"
+        change_signal = "SIGHUP"
       }
-
-#       template {
-#         destination = "secrets/certs/consul_ca.pem"
-#         env         = false
-#         change_mode = "restart"
-#         data        = <<EOF
-# {{- with nomadVar "nomad/jobs/my-api-gateway/gateway/setup" -}}
-# {{ .consul_cacert }}
-# {{- end -}}
-# EOF
-#       }
-
-#       template {
-#         destination = "secrets/certs/consul_client.pem"
-#         env         = false
-#         change_mode = "restart"
-#         data        = <<EOF
-# {{- with nomadVar "nomad/jobs/my-api-gateway/gateway/setup" -}}
-# {{ .consul_client_cert }}
-# {{- end -}}
-# EOF
-#       }
-
-#       template {
-#         destination = "secrets/certs/consul_client_key.pem"
-#         env         = false
-#         change_mode = "restart"
-#         data        = <<EOF
-# {{- with nomadVar "nomad/jobs/my-api-gateway/gateway/setup" -}}
-# {{ .consul_client_key }}
-# {{- end -}}
-# EOF
-#       }
-
+      
+      env {
+        CONSUL_HTTP_ADDR = "http://172.17.0.1:8500"
+        CONSUL_GRPC_ADDR = "172.17.0.1:8502" # xDS port (non-TLS)
+      }
     }
+
+    # --------------------------------------------------------------------------
+    #  Task "API Gateway"
+    # --------------------------------------------------------------------------
 
     task "api-gw" {
       driver = "docker"
 
+      identity {
+        name        = "consul_default"
+        aud         = ["consul.io"]
+        file        = true
+        ttl         = "1h"
+
+        # Send a HUP signal when the token file is updated
+        change_mode   = "signal"
+        change_signal = "SIGHUP"
+      }
+      
       config {
         image = var.envoy_image # image containing Envoy
         args = [
@@ -130,5 +133,36 @@ job "api-gateway" {
         ]
       }
     }
+
+    task "cleanup" {
+      
+      identity {
+        name        = "consul_default"
+        aud         = ["consul.io"]
+        file        = true
+        ttl         = "1h"
+
+        # Send a HUP signal when the token file is updated
+        change_mode   = "signal"
+        change_signal = "SIGHUP"
+      }
+      
+      lifecycle {
+        hook = "poststop"
+      }
+
+      driver = "raw_exec"
+
+      env {
+        CONSUL_HTTP_ADDR = "http://172.17.0.1:8500"
+        CONSUL_GRPC_ADDR = "172.17.0.1:8502" # xDS port (non-TLS)
+      }
+
+      config {
+        command = "consul"
+        args    = ["services", "deregister", "-id=api-gateway"]
+      }
+    }
+
   }
 }

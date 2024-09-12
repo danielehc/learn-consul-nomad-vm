@@ -1,3 +1,7 @@
+#-------------------------------------------------------------------------------
+# Job Variables
+#-------------------------------------------------------------------------------
+
 variable "datacenters" {
   description = "A list of datacenters in the region which are eligible for task placement."
   type        = list(string)
@@ -80,7 +84,9 @@ variable "db_port" {
   default = 5432
 }
 
-# Begin Job Spec
+### ----------------------------------------------------------------------------
+###  Job "HashiCups"
+### ----------------------------------------------------------------------------
 
 job "hashicups" {
   type   = "service"
@@ -94,6 +100,10 @@ job "hashicups" {
     operator  = "="
     value     = "ingress"
   }
+
+  ## ---------------------------------------------------------------------------
+  ##  Group "HashiCups"
+  ## ---------------------------------------------------------------------------
 
   group "hashicups" {
 
@@ -120,6 +130,10 @@ job "hashicups" {
       }
     }
 
+    # --------------------------------------------------------------------------
+    #  Task "Database"
+    # --------------------------------------------------------------------------
+
     task "db" {
       driver = "docker"
       meta {
@@ -136,6 +150,10 @@ job "hashicups" {
       }
     }
 
+    # --------------------------------------------------------------------------
+    #  Task "Product API"
+    # --------------------------------------------------------------------------
+
     task "product-api" {
       driver = "docker"
       meta {
@@ -150,6 +168,10 @@ job "hashicups" {
         BIND_ADDRESS = ":${var.product_api_port}"
       }
     }
+
+    # --------------------------------------------------------------------------
+    #  Task "Payments API"
+    # --------------------------------------------------------------------------
 
     task "payments-api" {
       driver = "docker"
@@ -174,6 +196,10 @@ job "hashicups" {
       }
     }
 
+    # --------------------------------------------------------------------------
+    #  Task "Public API"
+    # --------------------------------------------------------------------------
+
     task "public-api" {
       driver = "docker"
       meta {
@@ -189,6 +215,10 @@ job "hashicups" {
         PAYMENT_API_URI = "http://${NOMAD_ADDR_payments-api}"
       }
     }
+
+    # --------------------------------------------------------------------------
+    #  Task "Frontend"
+    # --------------------------------------------------------------------------
 
     task "frontend" {
       driver = "docker"
@@ -206,6 +236,10 @@ job "hashicups" {
       }
     }
 
+    # --------------------------------------------------------------------------
+    #  Task "NGINX"
+    # --------------------------------------------------------------------------
+
     task "nginx" {
       driver = "docker"
       meta {
@@ -222,30 +256,30 @@ job "hashicups" {
       }
       template {
         data =  <<EOF
-proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=STATIC:10m inactive=7d use_temp_path=off;
-upstream frontend_upstream {
-    server {{ env "NOMAD_IP_nginx" }}:${var.frontend_port};
-}
-server {
-  listen ${var.nginx_port};
-  server_name {{ env "NOMAD_IP_nginx" }};
-  server_tokens off;
-  gzip on;
-  gzip_proxied any;
-  gzip_comp_level 4;
-  gzip_types text/css application/javascript image/svg+xml;
-  proxy_http_version 1.1;
-  proxy_set_header Upgrade $http_upgrade;
-  proxy_set_header Connection 'upgrade';
-  proxy_set_header Host $host;
-  proxy_cache_bypass $http_upgrade;
-  location / { 
-    proxy_pass http://frontend_upstream;
-  }
-  location /api {
-    proxy_pass http://{{ env "NOMAD_IP_public_api" }}:${var.public_api_port};
-  }
-}
+          proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=STATIC:10m inactive=7d use_temp_path=off;
+          upstream frontend_upstream {
+              server {{ env "NOMAD_IP_nginx" }}:${var.frontend_port};
+          }
+          server {
+            listen ${var.nginx_port};
+            server_name {{ env "NOMAD_IP_nginx" }};
+            server_tokens off;
+            gzip on;
+            gzip_proxied any;
+            gzip_comp_level 4;
+            gzip_types text/css application/javascript image/svg+xml;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection 'upgrade';
+            proxy_set_header Host $host;
+            proxy_cache_bypass $http_upgrade;
+            location / { 
+              proxy_pass http://frontend_upstream;
+            }
+            location /api {
+              proxy_pass http://{{ env "NOMAD_IP_public_api" }}:${var.public_api_port};
+            }
+          }
         EOF
         destination = "local/default.conf"
       }

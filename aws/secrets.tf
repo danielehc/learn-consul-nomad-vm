@@ -99,6 +99,7 @@ resource "tls_cert_request" "server_csr" {
     "server-${count.index}.${var.datacenter}.${var.domain}",
     "consul-server-${count.index}.${var.datacenter}.${var.domain}",
     "nomad-server-${count.index}.${var.datacenter}.${var.domain}",
+    "nomad.service.${var.datacenter}.${var.domain}",
     "server.global.nomad",
     "localhost"
   ]

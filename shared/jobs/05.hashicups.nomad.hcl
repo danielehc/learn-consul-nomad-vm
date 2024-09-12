@@ -448,15 +448,121 @@ EOH
     }
   }
 
+  # group "nginx" {
+
+  #   count = 1
+
+  #   network {
+  #     mode = "bridge"
+  #     # port "nginx" {
+  #     #   static = var.nginx_port
+  #     # }
+  #     # dns {
+  #     # 	servers = ["172.17.0.1"] 
+  #     # }
+  #   }
+
+  #   service {
+  #     name = "nginx"
+  #     provider = "consul"
+  #     port = "${var.nginx_port}"
+  #     # address  = attr.unique.platform.aws.public-hostname
+
+  #     connect {
+  #       sidecar_service {
+  #         proxy {
+  #           upstreams {
+  #             destination_name = "public-api"
+  #             local_bind_port = 8081
+  #           }
+  #           upstreams {
+  #             destination_name = "frontend"
+  #             local_bind_port = 3000
+  #           }
+  #         }
+  #       }
+  #     }
+
+  #     check {
+  #       name      = "NGINX ready"
+  #       address_mode = "alloc"
+  #       type      = "http"
+  #       path			= "/health"
+  #       interval  = "5s"
+  #       timeout   = "5s"
+  #     }
+  #   }
+
+  #   # --------------------------------------------------------------------------
+  #   #  Task "NGINX"
+  #   # --------------------------------------------------------------------------
+
+  #   task "nginx" {
+  #     driver = "docker"
+  #     constraint {
+  #       attribute = "${meta.nodeRole}"
+  #       operator  = "="
+  #       value     = "ingress"
+  #     }
+  #     meta {
+  #       service = "nginx-reverse-proxy"
+  #     }
+  #     config {
+  #       image = "nginx:alpine"
+  #       ports = ["nginx"]
+  #       mount {
+  #         type   = "bind"
+  #         source = "local/default.conf"
+  #         target = "/etc/nginx/conf.d/default.conf"
+  #       }
+  #     }
+  #     template {
+  #       data =  <<EOF
+  #         proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=STATIC:10m inactive=7d use_temp_path=off;
+  #         upstream frontend_upstream {
+  #             server 127.0.0.1:${var.frontend_port};
+  #         }
+  #         server {
+  #           listen ${var.nginx_port};
+  #           server_name "";
+  #           server_tokens off;
+  #           gzip on;
+  #           gzip_proxied any;
+  #           gzip_comp_level 4;
+  #           gzip_types text/css application/javascript image/svg+xml;
+  #           proxy_http_version 1.1;
+  #           proxy_set_header Upgrade $http_upgrade;
+  #           proxy_set_header Connection 'upgrade';
+  #           proxy_set_header Host $host;
+  #           proxy_cache_bypass $http_upgrade;
+  #           location / {
+  #             proxy_pass http://frontend_upstream;
+  #           }
+  #           location /api {
+  #             proxy_pass http://127.0.0.1:${var.public_api_port};
+  #           }
+  #           location = /health {
+  #             access_log off;
+  #             add_header 'Content-Type' 'application/json';
+  #             return 200 '{"status":"UP"}';
+  #           }
+  #         }
+  #       EOF
+  #       destination = "local/default.conf"
+  #     }
+  #   }
+  # }
+
+
   group "nginx" {
 
     count = 1
 
     network {
       mode = "bridge"
-      port "nginx" {
-        static = var.nginx_port
-      }
+      # port "nginx" {
+      #   static = var.nginx_port
+      # }
       dns {
       	servers = ["172.17.0.1"] 
       }
@@ -465,8 +571,8 @@ EOH
     service {
       name = "nginx"
       provider = "consul"
-      port = "nginx"
-      address  = attr.unique.platform.aws.public-hostname
+      port = "${var.nginx_port}"
+      # address  = attr.unique.platform.aws.public-hostname
 
       connect {
           sidecar_service {
@@ -480,6 +586,7 @@ EOH
 
       check {
         name      = "NGINX ready"
+        address_mode = "alloc"
         type      = "http"
         path			= "/health"
         interval  = "5s"
@@ -492,7 +599,7 @@ EOH
       driver = "docker"
       constraint {
         attribute = "${meta.nodeRole}"
-        operator  = "="
+        operator  = "!="
         value     = "ingress"
       }
       
@@ -510,35 +617,35 @@ EOH
       }
       template {
         data =  <<EOF
-proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=STATIC:10m inactive=7d use_temp_path=off;
-upstream frontend_upstream {
-    server frontend.virtual.global:${var.frontend_port};
-}
-server {
-  listen ${var.nginx_port};
-  server_name {{ env "NOMAD_IP_nginx" }};
-  server_tokens off;
-  gzip on;
-  gzip_proxied any;
-  gzip_comp_level 4;
-  gzip_types text/css application/javascript image/svg+xml;
-  proxy_http_version 1.1;
-  proxy_set_header Upgrade $http_upgrade;
-  proxy_set_header Connection 'upgrade';
-  proxy_set_header Host $host;
-  proxy_cache_bypass $http_upgrade;
-  location = /health {
-    access_log off;
-    add_header 'Content-Type' 'application/json';
-    return 200 '{"status":"UP"}';
-  }
-  location / {
-    proxy_pass http://frontend_upstream;
-  }
-  location /api {
-    proxy_pass http://public-api.virtual.global:${var.public_api_port};
-  }
-}
+          proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=STATIC:10m inactive=7d use_temp_path=off;
+          upstream frontend_upstream {
+              server frontend.virtual.global;
+          }
+          server {
+            listen ${var.nginx_port};
+            server_name " ";
+            server_tokens off;
+            gzip on;
+            gzip_proxied any;
+            gzip_comp_level 4;
+            gzip_types text/css application/javascript image/svg+xml;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection 'upgrade';
+            proxy_set_header Host $host;
+            proxy_cache_bypass $http_upgrade;
+            location = /health {
+              access_log off;
+              add_header 'Content-Type' 'application/json';
+              return 200 '{"status":"UP"}';
+            }
+            location / {
+              proxy_pass http://frontend_upstream;
+            }
+            location /api {
+              proxy_pass http://public-api.virtual.global;
+            }
+          }
         EOF
         destination = "local/default.conf"
       }
