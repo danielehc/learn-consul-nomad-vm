@@ -89,11 +89,11 @@ job "api-gateway" {
         name        = "consul_default"
         aud         = ["consul.io"]
         file        = true
-        ttl         = "1h"
+        ttl         = "24h"
 
-        # Send a HUP signal when the token file is updated
-        change_mode   = "signal"
-        change_signal = "SIGHUP"
+        # # Send a HUP signal when the token file is updated
+        # change_mode   = "signal"
+        # change_signal = "SIGHUP"
       }
       
       env {
@@ -113,11 +113,11 @@ job "api-gateway" {
         name        = "consul_default"
         aud         = ["consul.io"]
         file        = true
-        ttl         = "1h"
+        ttl         = "24h"
 
-        # Send a HUP signal when the token file is updated
-        change_mode   = "signal"
-        change_signal = "SIGHUP"
+        # # Send a HUP signal when the token file is updated
+        # change_mode   = "signal"
+        # change_signal = "SIGHUP"
       }
       
       config {
@@ -134,17 +134,69 @@ job "api-gateway" {
       }
     }
 
+    # --------------------------------------------------------------------------
+    #  Task "Service change"
+    # --------------------------------------------------------------------------
+
+    task "service_change" {
+      
+      identity {
+        name        = "consul_default"
+        aud         = ["consul.io"]
+        file        = true
+        ttl         = "24h"
+      }
+      
+      lifecycle {
+        hook = "poststart"
+      }
+
+      driver = "raw_exec"
+
+      env {
+        CONSUL_HTTP_ADDR = "http://172.17.0.1:8500"
+        CONSUL_GRPC_ADDR = "172.17.0.1:8502" # xDS port (non-TLS)
+      }
+
+      config {
+        command = "consul"
+        args    = ["services", "register", "${NOMAD_TASK_DIR}/svc-api-gateway.hcl"]
+      }
+
+      template {
+        data = <<EOF
+          service {
+            id      = "api-gateway"
+            name    = "api-gateway"
+            kind    = "api-gateway"
+            port    = 8443
+            address = ""
+            meta = {
+              public_address = "https://{{ env "attr.unique.platform.aws.public-ipv4" }}:8443"
+            }
+          }
+        EOF
+
+        destination = "${NOMAD_TASK_DIR}/svc-api-gateway.hcl"
+      }
+
+    }
+
+    # --------------------------------------------------------------------------
+    #  Task "Cleanup"
+    # --------------------------------------------------------------------------
+
     task "cleanup" {
       
       identity {
         name        = "consul_default"
         aud         = ["consul.io"]
         file        = true
-        ttl         = "1h"
+        ttl         = "24h"
 
-        # Send a HUP signal when the token file is updated
-        change_mode   = "signal"
-        change_signal = "SIGHUP"
+        # # Send a HUP signal when the token file is updated
+        # change_mode   = "signal"
+        # change_signal = "SIGHUP"
       }
       
       lifecycle {
