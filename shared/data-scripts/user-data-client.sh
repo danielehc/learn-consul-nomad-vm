@@ -29,8 +29,6 @@ echo "${agent_key}"         | base64 -d | zcat > /tmp/agent-key.pem
 
 # Consul clients do not need certificates because auto_tls generates them automatically.
 sudo cp /tmp/agent-ca.pem $CONSUL_CONFIG_DIR/consul-agent-ca.pem
-# sudo cp /tmp/agent.pem $CONSUL_CONFIG_DIR/consul-agent.pem
-# sudo cp /tmp/agent-key.pem $CONSUL_CONFIG_DIR/consul-agent-key.pem
 
 sudo cp /tmp/agent-ca.pem $NOMAD_CONFIG_DIR/nomad-agent-ca.pem
 sudo cp /tmp/agent.pem $NOMAD_CONFIG_DIR/nomad-agent.pem
@@ -93,8 +91,6 @@ NOMAD_AGENT_TOKEN="${nomad_agent_token}"
 #-------------------------------------------------------------------------------
 
 # Install and link CNI Plugins to support Consul Connect-Enabled jobs
-# sudo apt install -y containernetworking-plugins
-# sudo mkdir /opt/cni && sudo  ln -s /usr/lib/cni /opt/cni/bin
 
 export ARCH_CNI=$( [ $(uname -m) = aarch64 ] && echo arm64 || echo amd64)
 export CNI_PLUGIN_VERSION=v1.5.1

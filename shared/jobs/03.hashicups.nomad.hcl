@@ -432,19 +432,12 @@ job "hashicups" {
 
     network {
       mode = "bridge"
-      # port "nginx" {
-      #   static = var.nginx_port
-      # }
-      # dns {
-      # 	servers = ["172.17.0.1"] 
-      # }
     }
 
     service {
       name = "nginx"
       provider = "consul"
       port = "${var.nginx_port}"
-      # address  = attr.unique.platform.aws.public-hostname
 
       connect {
         sidecar_service {

@@ -55,21 +55,12 @@ job "api-gateway" {
       # namespace = "foo"
     }
 
-    # service {
-    #   name = "api-gateway"
-    #   address = attr.unique.platform.aws.public-ipv4
-    # }
-
     # --------------------------------------------------------------------------
     #  Task "Setup"
     # --------------------------------------------------------------------------
 
     task "setup" {
       driver = "docker"
-
-      # service {
-      #   tags = ["api-gateway"]
-      # }
 
       config {
         image = var.consul_image # image containing Consul
