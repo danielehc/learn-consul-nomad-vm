@@ -146,15 +146,9 @@ Run the `datacenter.env` script to set Consul and Nomad environment variables wi
 source ./datacenter.env
 ```
 
-Run `terraform output` to show the Terraform output variables.
+Open the Consul UI with the URL in the `Consul_UI` Terraform output variable and log in with the token in the `Consul_UI_token` output variable. You will need to trust the certificate in your browser.
 
-```
-terraform output
-```
-
-Open the Consul UI with the URL in the `Consul_UI` variable and log in with the token in `Consul_UI_token`. You will need to trust the certificate in your browser.
-
-Open the Nomad UI in `Nomad_UI` and log in with `Nomad_UI_token`.
+Open the Nomad UI with the IP in `Nomad_UI` and log in with `Nomad_UI_token`.
 
 Test connectivity to the Nomad cluster from your local environment.
 
@@ -247,16 +241,22 @@ Set up the service intentions in Consul to allow the necessary services to commu
 ./03.intentions.consul.sh
 ```
 
+Change to the `aws` directory.
+
+```
+cd ../../aws
+```
+
 Submit the API gateway job to Nomad.
 
 ```
-nomad job run 03.api-gateway.nomad.hcl
+nomad job run ../shared/jobs/03.api-gateway.nomad.hcl
 ```
 
 Submit the HashiCups job to Nomad.
 
 ```
-nomad job run 03.hashicups.nomad.hcl
+nomad job run ../shared/jobs/03.hashicups.nomad.hcl
 ```
 
 Open the Consul UI and navigate to the **Services** page to see that each microservice and the API gateway service are registered in Consul.
@@ -302,22 +302,34 @@ The Nomad Autoscaler is a separate service and is run here as a Nomad job.
 
 ### Set up the Nomad Autoscaler and submit the jobs
 
+Change to the `jobs` directory.
+
+```
+cd ../shared/jobs
+```
+
 Run the autoscaler configuration script.
 
 ```
 ./04.autoscaler.config.sh 
 ```
 
+Change back to the `aws` directory.
+
+```
+cd ../../aws
+```
+
 Submit the autoscaler job to Nomad.
 
 ```
-nomad job run 04.autoscaler.nomad.hcl
+nomad job run ../shared/jobs/04.autoscaler.nomad.hcl
 ```
 
 Submit the HashiCups job to Nomad.
 
 ```
-nomad job run 04.hashicups.nomad.hcl
+nomad job run ../shared/jobs/04.hashicups.nomad.hcl
 ```
 
 ### View the HashiCups application
@@ -360,9 +372,9 @@ Run the `hey` tool against the API gateway. In this example, the URL is `https:/
 hey -z 20s -m GET https://3.135.190.255:8443
 ```
 
-Navigate back to the **frontend** task group page in the Nomad UI to see that additional allocations are being created as the autoscaler scales the frontend service up and removed as the autoscaler scales it back down.
+Navigate back to the **frontend** task group page in the Nomad UI and refresh it a few times to see that additional allocations are being created as the autoscaler scales the frontend service up and removed as the autoscaler scales it back down.
 
-Stop the deployment when you are ready to move on.
+Open up the terminal session from where you submitted the jobs and stop the deployment when you are ready to move on.
 
 ```
 nomad job stop -purge hashicups
@@ -386,13 +398,7 @@ nomad job stop -purge --namespace ingress api-gateway
 
 ### Destroy infrastructure
 
-Navigate to the `aws` directory.
-
-```
-cd ../../aws
-```
-
-Run the script to unset local environment variables.
+From within the `aws` directory, run the script to unset local environment variables.
 
 ```
 source ../shared/scripts/unset_env_variables.sh
