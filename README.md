@@ -17,13 +17,13 @@ There are several jobspec files for the application and each one builds on the p
 
 ## Steps
 
-1. [Build the cluster](#build-the-cluster)
-1. [Set up Consul and Nomad access](#set-up-consul-and-nomad-access)
-1. [Deploy the initial HashiCups application](#deploy-initial-hashicups-application)
-1. [Deploy HashiCups with Consul service discovery and DNS](#deploy-hashicups-with-consul-service-discovery-and-dns)
-1. [Deploy HashiCups with service mesh and API gateway](#deploy-hashicups-with-service-mesh-and-api-gateway)
-1. [Scale the HashiCups application](#scale-the-hashicups-application)
-1. [Cleanup jobs and infrastructure](#cleanup)
+1. [Build the cluster](#1-build-the-cluster)
+1. [Set up Consul and Nomad access](#2-set-up-consul-and-nomad-access)
+1. [Deploy the initial HashiCups application](#3-deploy-initial-hashicups-application)
+1. [Deploy HashiCups with Consul service discovery and DNS](#4-deploy-hashicups-with-consul-service-discovery-and-dns)
+1. [Deploy HashiCups with service mesh and API gateway](#5-deploy-hashicups-with-service-mesh-and-api-gateway)
+1. [Scale the HashiCups application](#6-scale-the-hashicups-application)
+1. [Cleanup jobs and infrastructure](#7-cleanup)
 
 ## 1. Build the cluster
 
