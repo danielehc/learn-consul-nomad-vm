@@ -31,25 +31,7 @@ output "Nomad_UI_token" {
   value = random_uuid.nomad_mgmt_token.result
   # sensitive = true
 }
-################################################################################
-################################################################################
-
-# output "lb_address_consul_nomad" {
-#   value = "http://${aws_instance.server[0].public_ip}"
-# }
 
 output "Consul_UI_token" {
   value = random_uuid.consul_mgmt_token.result
 }
-
-# output "IP_Addresses" {
-#   value = <<CONFIGURATION
-
-# Client public IPs: ${join(", ", aws_instance.client[*].public_ip)}
-
-# Server public IPs: ${join(", ", aws_instance.server[*].public_ip)}
-
-# The Consul UI can be accessed at https://${aws_instance.server[0].public_ip}:8443
-# with the token: ${random_uuid.consul_mgmt_token.result}
-# CONFIGURATION
-# }

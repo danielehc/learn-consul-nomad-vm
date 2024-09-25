@@ -38,10 +38,6 @@ provider "consul" {
   token           = random_uuid.consul_mgmt_token.result
   ca_pem          = tls_self_signed_cert.datacenter_ca.cert_pem
   scheme          = "https"
-  # This is set to true because there is no parameter to set CONSUL_TLS_SERVER_NAME
-  # Without setting it the provider will error with Bad Certificate because we 
-  # use IP address to access the Consul instance that is not present in the certificate.
-  # insecure_https  = true
 }
 
 provider "nomad" {

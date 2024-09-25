@@ -2,19 +2,6 @@
 # VPC
 #-------------------------------------------------------------------------------
 
-# resource "aws_vpc" "default" {
-  
-#   instance_tenancy = "default"
-#   cidr_block = "10.0.0.0/24"
-
-#   enable_dns_hostnames = true
-#   enable_dns_support   = true
-
-#   tags = {
-#     Name = "${local.name}-vpc"
-#   }
-# }
-
 data "aws_availability_zones" "available" {
   state = "available"
 
@@ -67,21 +54,6 @@ resource "aws_security_group" "consul_nomad_ui_ingress" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  ## todo remove after migrating to TLS
-  # ingress {
-  #   from_port       = 8500
-  #   to_port         = 8500
-  #   protocol        = "tcp"
-  #   cidr_blocks = ["0.0.0.0/0"]
-  # }
-
-  # ingress {
-  #   from_port = 0
-  #   to_port   = 0
-  #   protocol  = "-1"
-  #   self      = true
-  # }
-
   egress {
     from_port   = 0
     to_port     = 0
@@ -101,13 +73,6 @@ resource "aws_security_group" "ssh_ingress" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
-  # ingress {
-  #   from_port = 0
-  #   to_port   = 0
-  #   protocol  = "-1"
-  #   self      = true
-  # }
 
   egress {
     from_port   = 0
@@ -139,13 +104,6 @@ resource "aws_security_group" "allow_all_internal" {
 resource "aws_security_group" "clients_ingress" {
   name   = "${local.name}-clients-ingress"
   vpc_id = module.vpc.vpc_id
-
-  # ingress {
-  #   from_port = 0
-  #   to_port   = 0
-  #   protocol  = "-1"
-  #   self      = true
-  # }
 
   egress {
     from_port   = 0

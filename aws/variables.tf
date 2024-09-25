@@ -20,7 +20,7 @@ locals {
   name = "${var.prefix}-${random_string.suffix.result}"
 }
 
-# Random Auto-Jon for Consul servers
+# Random Auto-Join for Consul servers
 # Nomad servers will use Consul to join the cluster
 locals {
   retry_join_consul = "provider=aws tag_key=ConsulJoinTag tag_value=auto-join-${random_string.suffix.result}"

@@ -12,9 +12,7 @@ resource "aws_instance" "client" {
   key_name               = aws_key_pair.vm_ssh_key-pair.key_name
   associate_public_ip_address = true
   vpc_security_group_ids = [
-    # aws_security_group.consul_nomad_ui_ingress.id, 
-    aws_security_group.ssh_ingress.id, 
-    # aws_security_group.clients_ingress.id, 
+    aws_security_group.ssh_ingress.id,
     aws_security_group.allow_all_internal.id
   ]
   subnet_id = module.vpc.public_subnets[0]
@@ -75,7 +73,6 @@ resource "aws_instance" "public_client" {
   key_name               = aws_key_pair.vm_ssh_key-pair.key_name
   associate_public_ip_address = true
   vpc_security_group_ids = [
-    # aws_security_group.consul_nomad_ui_ingress.id, 
     aws_security_group.ssh_ingress.id, 
     aws_security_group.clients_ingress.id, 
     aws_security_group.allow_all_internal.id
