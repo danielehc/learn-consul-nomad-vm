@@ -84,6 +84,11 @@ variable "db_port" {
   default = 5432
 }
 
+variable "frontend_max_scale" {
+  description = "The maximum number of instances to scale up to."
+  default     = 5
+}
+
 ### ----------------------------------------------------------------------------
 ###  Job "HashiCups"
 ### ----------------------------------------------------------------------------
@@ -371,6 +376,29 @@ job "hashicups" {
   group "frontend" {
     
     count = 1
+
+    scaling {
+      enabled = true
+      min     = 1
+      max     = var.frontend_max_scale
+
+      policy {
+        evaluation_interval = "5s"
+        cooldown            = "10s"
+
+        check "high-cpu-usage" {
+          source = "nomad-apm"
+          query = "max_cpu-allocated"
+
+          strategy "target-value" {
+            driver = "target-value"
+            target = 70
+            threshold = 0.05
+            max_scale_up = var.frontend_max_scale
+          }
+        }
+      }
+    }
 
     network {
       mode = "bridge"

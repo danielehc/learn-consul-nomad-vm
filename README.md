@@ -25,7 +25,7 @@ There are several jobspec files for the application and each one builds on the p
 1. [Scale the HashiCups application](#scale-the-hashicups-application)
 1. [Cleanup jobs and infrastructure](#cleanup)
 
-## Build the cluster
+## 1. Build the cluster
 
 Begin by creating the machine image with Packer.
 
@@ -34,16 +34,16 @@ Begin by creating the machine image with Packer.
 Change into the `aws` directory.
 
 ```
-$ cd aws
+cd aws
 ```
 
 Rename `variables.hcl.example` to `variables.hcl` and open it in your text editor.
 
 ```
-$ cp variables.hcl.example variables.hcl
+cp variables.hcl.example variables.hcl
 ```
 
-Update the region variable with your preferred AWS region. In this example, the region is us-east-1. The remaining variables are for Terraform and you update them after building the AMI.
+Update the region variable with your preferred AWS region. In this example, the region is `us-east-1`. The remaining variables are for Terraform and you can update them after building the AMI.
 
 ```yaml
 # Packer variables (all are required)
@@ -57,17 +57,19 @@ region          = "us-east-1"
 Initialize Packer to download the required plugins.
 
 ```
-$ packer init image.pkr.hcl
+packer init image.pkr.hcl
 ```
 
 
-Then, build the image and provide the variables file with the `-var-file` flag.
+Build the image and provide the variables file with the `-var-file` flag.
 
 ```
-$ packer build -var-file=variables.hcl image.pkr.hcl
+packer build -var-file=variables.hcl image.pkr.hcl
+```
 
-# ...
+Example output from the above command.
 
+```
 Build 'amazon-ebs' finished after 14 minutes 32 seconds.
 
 ==> Wait completed after 14 minutes 32 seconds
@@ -103,7 +105,7 @@ You can update these variables with other values. If you do, be sure to also upd
 Export the `CONSUL_TLS_SERVER_NAME` environment variable.
 
 ```
-$ export CONSUL_TLS_SERVER_NAME="consul.dc1.global"
+export CONSUL_TLS_SERVER_NAME="consul.dc1.global"
 ```
 
 ### Deploy the datacenter
@@ -111,13 +113,13 @@ $ export CONSUL_TLS_SERVER_NAME="consul.dc1.global"
 Initialize the Terraform configuration to download the necessary providers and modules.
 
 ```
-$ terraform init
+terraform init
 ```
 
 Provision the resources and provide the variables file with the `-var-file` flag. Respond `yes` to the prompt to confirm the operation.
 
 ```
-$ terraform apply -var-file=variables.hcl
+terraform apply -var-file=variables.hcl
 ```
 
 From the Terraform output you can retrieve the links to connect to your newly created datacenter.
@@ -134,47 +136,51 @@ Nomad_UI = "https://52.202.91.53:4646"
 Nomad_UI_token = <sensitive>
 ```
 
-## Set up Consul and Nomad access
+## 2. Set up Consul and Nomad access
 
 Once Terraform finishes creating the infrastructure, you can set up access to Consul and Nomad from your local environment.
 
 Run the `datacenter.env` script to set Consul and Nomad environment variables with values from the infrastructure Terraform created.
 
 ```
-$ source ./datacenter.env
+source ./datacenter.env
 ```
 
 Run `terraform output` to show the Terraform output variables.
 
 ```
-$ terraform output
+terraform output
 ```
 
 Open the Consul UI with the URL in the `Consul_UI` variable and log in with the token in `Consul_UI_token`. You will need to trust the certificate in your browser.
 
-Open the Nomad UI and log in with the `Nomad_UI` and `Nomad_UI_token` variables.
+Open the Nomad UI in `Nomad_UI` and log in with `Nomad_UI_token`.
 
 Test connectivity to the Nomad cluster from your local environment.
 
 ```
-$ nomad server members
+nomad server members
 ```
 
-## Deploy initial HashiCups application
+## 3. Deploy initial HashiCups application
 
-HashiCups represents a monolithic application has been broken apart into separate services and configured to run with Docker Compose. The [initial version (`01.hashicups.nomad.hcl`)](shared/jobs/01.hashicups.nomad.hcl) is a translation of the Docker Compose file to a Nomad jobspec.
+HashiCups represents a monolithic application that has been broken apart into separate services and configured to run with Docker Compose. The initial version is a translation of the fictional Docker Compose file to a Nomad jobspec.
 
-Submit the initial jobspec to Nomad. Note that you must submit jobs from the `aws` directory as the `NOMAD_CACERT` variable references the `certs` directory here.
+Submit the initial jobspec to Nomad. Note that you must submit the job from the `aws` directory as the `NOMAD_CACERT` variable references the `certs` directory here.
 
 ```
-$ nomad job run ../shared/jobs/01.hashicups.nomad.hcl
+nomad job run ../shared/jobs/01.hashicups.nomad.hcl
 ```
 
 View the application by navigating to the public IP address of the NGINX service endpoint. Find the IP by first finding the node on which the service is running.
 
 ```
-$ nomad job allocs hashicups
+nomad job allocs hashicups
+```
 
+Example output from the above command.
+
+```
 ID        Node ID   Task Group  Version  Desired  Status   Created    Modified
 e50ca6bd  7ff2205f  hashicups   0        run      running  1m22s ago  53s ago
 ```
@@ -182,8 +188,12 @@ e50ca6bd  7ff2205f  hashicups   0        run      running  1m22s ago  53s ago
 Copy the `Node ID` value and use it in the `nomad node status -verbose [NODE_ID]` command to find the IP address. In this example, the ID is `7ff2205f`.
 
 ```
-$ nomad node status -verbose 7ff2205f | grep -i public-ipv4
+nomad node status -verbose 7ff2205f | grep -i public-ipv4
+```
 
+Example output from the above command.
+
+```
 unique.platform.aws.public-ipv4          = 18.191.53.222
 ```
 
@@ -192,17 +202,17 @@ Copy the IP address and open it in your browser. You do not need to specify a po
 Stop the deployment when you are ready to move on. The [`-purge` flag](https://developer.hashicorp.com/nomad/docs/commands/job/stop#purge) removes the job from the UI.
 
 ```
-$ nomad job stop -purge hashicups
+nomad job stop -purge hashicups
 ```
 
-## Deploy HashiCups with Consul service discovery and DNS
+## 4. Deploy HashiCups with Consul service discovery and DNS
 
-This version of the jobspec integrates Consul and uses service discovery and DNS to facilitate communication between the microservices.
+This jobspec integrates Consul and uses service discovery and DNS to facilitate communication between the microservices.
 
 Submit the job to Nomad.
 
 ```
-$ nomad job run ../shared/jobs/02.hashicups.nomad.hcl
+nomad job run ../shared/jobs/02.hashicups.nomad.hcl
 ```
 
 Open the Consul UI and navigate to the **Services** page to see that each microservice is now registered in Consul with health checks.
@@ -212,50 +222,54 @@ Click on the **nginx** service and then click on the instance name to view the i
 Stop the deployment when you are ready to move on.
 
 ```
-$ nomad job stop -purge hashicups
+nomad job stop -purge hashicups
 ```
 
-## Deploy HashiCups with service mesh and API gateway
+## 5. Deploy HashiCups with service mesh and API gateway
 
-This version of the jobspec further integrates Consul by using service mesh and API gateway. Services use `localhost` and the Envoy proxy to enable mutual TLS and upstream service configurations for better security. The API gateway allows external access to the NGINX service.
+This jobspec further integrates Consul by using service mesh and API gateway. Services use `localhost` and the Envoy proxy to enable mutual TLS and upstream service configurations for better security. The API gateway allows external access to the NGINX service.
 
 Change to the `jobs` directory.
 
 ```
-$ cd ../shared/jobs
+cd ../shared/jobs
 ```
 
 Set up the API gateway configurations in Consul.
 
 ```
-$ ./04.api-gateway.config.sh
+./03.api-gateway.config.sh
 ```
 
 Set up the service intentions in Consul to allow the necessary services to communicate with each other.
 
 ```
-$ ./04.intentions.consul.sh
+./03.intentions.consul.sh
 ```
 
 Submit the API gateway job to Nomad.
 
 ```
-$ nomad job run 04.api-gateway.nomad.hcl
+nomad job run 03.api-gateway.nomad.hcl
 ```
 
 Submit the HashiCups job to Nomad.
 
 ```
-$ nomad job run 04.hashicups.nomad.hcl
+nomad job run 03.hashicups.nomad.hcl
 ```
 
 Open the Consul UI and navigate to the **Services** page to see that each microservice and the API gateway service are registered in Consul.
 
-View the application by navigating to the public IP address of the API gateway. Find the IP by first finding the node on which the service is running. Note the `--namespace` flag, the API gateway is running in another namespace.
+View the application by navigating to the public IP address of the API gateway. Find the IP by first finding the node on which the service is running. Note the `--namespace` flag; the API gateway is running in another namespace.
 
 ```
-$ nomad job allocs --namespace=ingress api-gateway
+nomad job allocs --namespace=ingress api-gateway
+```
 
+Example output from the above command.
+
+```
 ID        Node ID   Task Group   Version  Desired  Status   Created     Modified
 57e89ed2  e5af02d7  api-gateway  0        run      running  1m40s ago  57s ago
 ```
@@ -263,8 +277,12 @@ ID        Node ID   Task Group   Version  Desired  Status   Created     Modified
 Copy the `Node ID` value and use it in the `nomad node status -verbose [NODE_ID]` command to find the IP address. In this example, the ID is `e5af02d7`.
 
 ```
-$ nomad node status -verbose e5af02d7 | grep -i public-ipv4
+nomad node status -verbose e5af02d7 | grep -i public-ipv4
+```
 
+Example output from the above command.
+
+```
 unique.platform.aws.public-ipv4          = 3.135.190.255
 ```
 
@@ -273,42 +291,45 @@ The API gateway is running over HTTPS and uses port `8443` so the URL will be `h
 Stop the deployment when you are ready to move on.
 
 ```
-$ nomad job stop -purge hashicups
+nomad job stop -purge hashicups
 ```
 
-## Scale the HashiCups application
+## 6. Scale the HashiCups application
 
-This version of the HashiCups jobspec is the same as the API gateway version with the addition of the `scaling` block. This block instructs the Nomad Autoscaler to scale the frontend service up and down based on traffic load.
+This jobspec is the same as the API gateway version with the addition of the `scaling` block. This block instructs the Nomad Autoscaler to scale the frontend service up and down based on traffic load.
 
 The Nomad Autoscaler is a separate service and is run here as a Nomad job.
 
-### Submit the Nomad jobs
+### Set up the Nomad Autoscaler and submit the jobs
 
 Run the autoscaler configuration script.
 
 ```
-$ ./06.autoscaler.config.sh 
+./04.autoscaler.config.sh 
 ```
 
 Submit the autoscaler job to Nomad.
 
 ```
-$ nomad job run 06.autoscaler.nomad.hcl
+nomad job run 04.autoscaler.nomad.hcl
 ```
 
 Submit the HashiCups job to Nomad.
 
 ```
-$ nomad job run 06.hashicups.nomad.hcl
+nomad job run 04.hashicups.nomad.hcl
 ```
 
 ### View the HashiCups application
 
-View the application by navigating to the public IP address of the API gateway. Find the IP by first finding the node on which the service is running. Note the `--namespace` flag, the API gateway is running in another namespace.
+View the application by navigating to the public IP address of the API gateway. Find the IP by first finding the node on which the service is running. Note the `--namespace` flag; the API gateway is running in another namespace.
 
 ```
-$ nomad job allocs --namespace=ingress api-gateway
+nomad job allocs --namespace=ingress api-gateway
+```
 
+Example output from the above command.
+```
 ID        Node ID   Task Group   Version  Desired  Status   Created     Modified
 57e89ed2  e5af02d7  api-gateway  0        run      running  1m40s ago  57s ago
 ```
@@ -316,8 +337,12 @@ ID        Node ID   Task Group   Version  Desired  Status   Created     Modified
 Copy the `Node ID` value and use it in the `nomad node status -verbose [NODE_ID]` command to find the IP address. In this example, the ID is `e5af02d7`.
 
 ```
-$ nomad node status -verbose e5af02d7 | grep -i public-ipv4
+nomad node status -verbose e5af02d7 | grep -i public-ipv4
+```
 
+Example output from the above command.
+
+```
 unique.platform.aws.public-ipv4          = 3.135.190.255
 ```
 
@@ -325,38 +350,38 @@ The API gateway is running over HTTPS and uses port `8443` so the URL will be `h
 
 ### Scale the frontend service
 
-In another browser tab, open the Nomad UI, click on the **hashicups** job name, and then click on the **frontend** task in the **Task Groups** list. This page displays a graph that shows scaling events at the bottom of the page. Keep this page open so you can reference it when scaling starts.
+In another browser tab, open the Nomad UI, click on the **hashicups** job name, and then click on the **frontend** task from within the **Task Groups** list. This page displays a graph that shows scaling events at the bottom of the page. Keep this page open so you can reference it when scaling starts.
 
 Open another terminal in your local environment to generate load with the [`hey`](https://github.com/rakyll/hey) tool.
 
-Run the `hey` tool against the API gateway URL from above. In this example, the URL is `https://3.135.190.255:8443`. This command generates load for 20 seconds.
+Run the `hey` tool against the API gateway. In this example, the URL is `https://3.135.190.255:8443`. This command generates load for 20 seconds.
 
 ```
-$ hey -z 20s -m GET https://3.135.190.255:8443
+hey -z 20s -m GET https://3.135.190.255:8443
 ```
 
-Navigate back to the **frontend** task group page in the Nomad UI to see that additional allocations are being created as the autoscaler scales the frontend service up. You can also see soon after that it then scales back down.
+Navigate back to the **frontend** task group page in the Nomad UI to see that additional allocations are being created as the autoscaler scales the frontend service up and removed as the autoscaler scales it back down.
 
 Stop the deployment when you are ready to move on.
 
 ```
-$ nomad job stop -purge hashicups
+nomad job stop -purge hashicups
 ```
 
-## Cleanup
+## 7. Cleanup
 
 ### Clean up jobs
 
 Stop and purge the hashicups and autoscaler jobs.
 
 ```
-$ nomad job stop -purge hashicups autoscaler
+nomad job stop -purge hashicups autoscaler
 ```
 
 Stop and purge the api-gateway job. Note that it runs in a different namespace.
 
 ```
-$ nomad job stop -purge --namespace ingress api-gateway
+nomad job stop -purge --namespace ingress api-gateway
 ```
 
 ### Destroy infrastructure
@@ -364,19 +389,19 @@ $ nomad job stop -purge --namespace ingress api-gateway
 Navigate to the `aws` directory.
 
 ```
-$ cd ../../aws
+cd ../../aws
 ```
 
 Run the script to unset local environment variables.
 
 ```
-$ source ../shared/scripts/unset_env_variables.sh
+source ../shared/scripts/unset_env_variables.sh
 ```
 
 Use `terraform destroy` to remove the provisioned infrastructure. Respond `yes` to the prompt to confirm removal.
 
 ```
-$ terraform destroy -var-file=variables.hcl
+terraform destroy -var-file=variables.hcl
 ```
 
 ### Delete AMI and S3-store snapshots (optional)
@@ -384,13 +409,13 @@ $ terraform destroy -var-file=variables.hcl
 Delete the stored AMI built using packer using the `deregister-image` command. 
 
 ```
-$ aws ec2 deregister-image --image-id ami-0445eeea5e1406960
+aws ec2 deregister-image --image-id ami-0445eeea5e1406960
 ```
 
 To delete stored snapshots, first query for the snapshot using the `describe-snapshots` command.
 
 ```
-$ aws ec2 describe-snapshots \
+aws ec2 describe-snapshots \
     --owner-ids self \
     --query "Snapshots[*].{ID:SnapshotId,Time:StartTime}"
 ```
@@ -398,5 +423,37 @@ $ aws ec2 describe-snapshots \
 Next, delete the stored snapshot using the `delete-snapshot` command by specifying the `snapshot-id` value.
 
 ```
-$ aws ec2 delete-snapshot --snapshot-id snap-1234567890abcdef0
+aws ec2 delete-snapshot --snapshot-id snap-1234567890abcdef0
 ```
+
+## Reference
+
+### HashiCups jobspec files and attributes
+
+#### [01.hashicups.nomad.hcl](shared/jobs/01.hashicups.nomad.hcl)
+- Initial jobspec for HashiCups
+- Translation of fictional Docker Compose file to Nomad jobspec
+
+#### [02.hashicups.nomad.hcl](shared/jobs/02.hashicups.nomad.hcl)
+- Separates tasks into groups
+- Adds [`service` blocks](https://developer.hashicorp.com/nomad/docs/job-specification/service) with `provider="consul"` and [health checks](https://developer.hashicorp.com/nomad/docs/job-specification/check)
+- Uses Consul DNS and static ports
+- Uses [client node constraints](https://developer.hashicorp.com/nomad/docs/job-specification/constraint)
+
+#### [03.hashicups.nomad.hcl](shared/jobs/03.hashicups.nomad.hcl)
+- Uses Consul service mesh
+- Defines [service upstreams](https://developer.hashicorp.com/nomad/docs/job-specification/upstreams) and mapped service ports
+- Uses `localhost` and [Envoy proxy](https://developer.hashicorp.com/consul/docs/connect/proxies/envoy) instead of DNS for service communication
+
+#### [04.hashicups.nomad.hcl](shared/jobs/04.hashicups.nomad.hcl)
+- Adds `scaling` block to the frontend service for [horizontal application autoscaling](https://developer.hashicorp.com/nomad/tools/autoscaling#horizontal-application-autoscaling)
+
+### Other jobspec files
+
+#### [03.api-gateway.nomad.hcl](shared/jobs/03.api-gateway.nomad.hcl)
+- Runs the [API gateway](https://developer.hashicorp.com/consul/docs/connect/gateways/api-gateway) on port `8443`
+- Constrains the job to a public client node
+
+#### [04.autoscaler.nomad.hcl](shared/jobs/04.autoscaler.nomad.hcl)
+- Runs the [Nomad Autoscaler agent](https://developer.hashicorp.com/nomad/tools/autoscaling/agent)
+- Uses the [Nomad APM plugin](https://developer.hashicorp.com/nomad/tools/autoscaling/plugins/apm/nomad)
