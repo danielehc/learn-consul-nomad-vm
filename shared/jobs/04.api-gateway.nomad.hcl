@@ -119,6 +119,17 @@ job "api-gateway" {
         # change_mode   = "signal"
         # change_signal = "SIGHUP"
       }
+
+      # restart {
+        # mode = delay instructs the client to wait interval time value
+        # before restarting the task - this should attempt to restart
+        # the task even after the number of attempts have been 
+        # reached
+      #  mode = "delay"
+      #  attempts = 2
+      #  delay = "10s"
+      #  interval = "15s"
+      #}
       
       config {
         image = var.envoy_image # image containing Envoy

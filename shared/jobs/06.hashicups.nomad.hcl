@@ -384,7 +384,7 @@ job "hashicups" {
 
       policy {
         evaluation_interval = "5s"
-        cooldown            = "1m"
+        cooldown            = "10s"
 
         check "high-cpu-usage" {
           source = "nomad-apm"

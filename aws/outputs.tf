@@ -42,14 +42,14 @@ output "Consul_UI_token" {
   value = random_uuid.consul_mgmt_token.result
 }
 
-output "IP_Addresses" {
-  value = <<CONFIGURATION
+# output "IP_Addresses" {
+#   value = <<CONFIGURATION
 
-Client public IPs: ${join(", ", aws_instance.client[*].public_ip)}
+# Client public IPs: ${join(", ", aws_instance.client[*].public_ip)}
 
-Server public IPs: ${join(", ", aws_instance.server[*].public_ip)}
+# Server public IPs: ${join(", ", aws_instance.server[*].public_ip)}
 
-The Consul UI can be accessed at https://${aws_instance.server[0].public_ip}:8443
-with the token: ${random_uuid.consul_mgmt_token.result}
-CONFIGURATION
-}
+# The Consul UI can be accessed at https://${aws_instance.server[0].public_ip}:8443
+# with the token: ${random_uuid.consul_mgmt_token.result}
+# CONFIGURATION
+# }
