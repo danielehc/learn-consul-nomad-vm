@@ -132,7 +132,7 @@ Outputs:
 
 Configure-local-environment = "source ./datacenter.env"
 Consul_UI = "https://52.202.91.53:8443"
-Consul_UI_token = "8d964e70-9bfa-f410-9d6b-0e0ccf7292b4"
+Consul_UI_token = <sensitive>
 Nomad_UI = "https://52.202.91.53:4646"
 Nomad_UI_token = <sensitive>
 ```
