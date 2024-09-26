@@ -21,7 +21,7 @@ There are several jobspec files for the application and each one builds on the p
 1. [Set up Consul and Nomad access](#2-set-up-consul-and-nomad-access)
 1. [Deploy the initial HashiCups application](#3-deploy-initial-hashicups-application)
 1. [Deploy HashiCups with Consul service discovery and DNS on a single VM](#4-deploy-hashicups-with-consul-service-discovery-on-a-single-vm)
-1. [Deploy HashiCups with Consul service discovery and DNS on a multiple VMs](#5-deploy-hashicups-with-consul-service-discovery-on-multiple-vms)
+1. [Deploy HashiCups with Consul service discovery and DNS on multiple VMs](#5-deploy-hashicups-with-consul-service-discovery-on-multiple-vms)
 1. [Deploy HashiCups with service mesh and API gateway](#6-deploy-hashicups-with-service-mesh-and-api-gateway)
 1. [Scale the HashiCups application](#7-scale-the-hashicups-application)
 1. [Cleanup jobs and infrastructure](#8-cleanup)
@@ -167,29 +167,19 @@ Submit the initial jobspec to Nomad. Note that you must submit the job from the 
 nomad job run ../shared/jobs/01.hashicups.nomad.hcl
 ```
 
-View the application by navigating to the public IP address of the NGINX service endpoint. Find the IP by first finding the node on which the service is running.
+View the application by navigating to the public IP address of the NGINX service endpoint. This compound command finds the node on which the `hashicups` allocation is running (`nomad job allocs`) and uses the ID of the found node to retrieve the public IP address of the node (`nomad node status`). It then formats the output with the HTTP protocol.
 
 ```
-nomad job allocs hashicups
-```
-
-Example output from the above command.
-
-```
-ID        Node ID   Task Group  Version  Desired  Status   Created    Modified
-e50ca6bd  7ff2205f  hashicups   0        run      running  1m22s ago  53s ago
-```
-
-Copy the `Node ID` value and use it in the `nomad node status -verbose [NODE_ID]` command to find the IP address. In this example, the ID is `7ff2205f`.
-
-```
-nomad node status -verbose 7ff2205f | grep -i public-ipv4
+nomad node status -verbose \
+    $(nomad job allocs hashicups | grep -i running | awk '{print $2}') | \
+    grep -i public-ipv4 | awk -F "=" '{print $2}' | xargs | \
+    awk '{print "http://"$1}'
 ```
 
 Example output from the above command.
 
 ```
-unique.platform.aws.public-ipv4          = 18.191.53.222
+http://18.191.53.222
 ```
 
 Copy the IP address and open it in your browser. You do not need to specify a port as NGINX is running on port `80`.
@@ -284,32 +274,20 @@ nomad job run ../shared/jobs/04.hashicups.nomad.hcl
 
 Open the Consul UI and navigate to the **Services** page to see that each microservice and the API gateway service are registered in Consul.
 
-View the application by navigating to the public IP address of the API gateway. Find the IP by first finding the node on which the service is running. Note the `--namespace` flag; the API gateway is running in another namespace.
+View the application by navigating to the public IP address of the API gateway. Note the `--namespace` flag; the API gateway is running in another namespace. You will need to trust the certificate in your browser.
 
 ```
-nomad job allocs --namespace=ingress api-gateway
-```
-
-Example output from the above command.
-
-```
-ID        Node ID   Task Group   Version  Desired  Status   Created     Modified
-57e89ed2  e5af02d7  api-gateway  0        run      running  1m40s ago  57s ago
-```
-
-Copy the `Node ID` value and use it in the `nomad node status -verbose [NODE_ID]` command to find the IP address. In this example, the ID is `e5af02d7`.
-
-```
-nomad node status -verbose e5af02d7 | grep -i public-ipv4
+nomad node status -verbose \
+    $(nomad job allocs --namespace=ingress api-gateway | grep -i running | awk '{print $2}') | \
+    grep -i public-ipv4 | awk -F "=" '{print $2}' | xargs | \
+    awk '{print "https://"$1":8443"}'
 ```
 
 Example output from the above command.
 
 ```
-unique.platform.aws.public-ipv4          = 3.135.190.255
+https://3.135.190.255:8443
 ```
-
-The API gateway is running over HTTPS and uses port `8443` so the URL will be `https://[IP_ADDRESS]:8443`. In this example, the URL is `https://3.135.190.255:8443`. You will need to trust the certificate in your browser.
 
 Stop the deployment when you are ready to move on.
 
@@ -357,31 +335,20 @@ nomad job run ../shared/jobs/05.hashicups.nomad.hcl
 
 ### View the HashiCups application
 
-View the application by navigating to the public IP address of the API gateway. Find the IP by first finding the node on which the service is running. Note the `--namespace` flag; the API gateway is running in another namespace.
+View the application by navigating to the public IP address of the API gateway. Note the `--namespace` flag; the API gateway is running in another namespace. You will need to trust the certificate in your browser.
 
 ```
-nomad job allocs --namespace=ingress api-gateway
-```
-
-Example output from the above command.
-```
-ID        Node ID   Task Group   Version  Desired  Status   Created     Modified
-57e89ed2  e5af02d7  api-gateway  0        run      running  1m40s ago  57s ago
-```
-
-Copy the `Node ID` value and use it in the `nomad node status -verbose [NODE_ID]` command to find the IP address. In this example, the ID is `e5af02d7`.
-
-```
-nomad node status -verbose e5af02d7 | grep -i public-ipv4
+nomad node status -verbose \
+    $(nomad job allocs --namespace=ingress api-gateway | grep -i running | awk '{print $2}') | \
+    grep -i public-ipv4 | awk -F "=" '{print $2}' | xargs | \
+    awk '{print "https://"$1":8443"}'
 ```
 
 Example output from the above command.
 
 ```
-unique.platform.aws.public-ipv4          = 3.135.190.255
+https://3.135.190.255:8443
 ```
-
-The API gateway is running over HTTPS and uses port `8443` so the URL will be `https://[IP_ADDRESS]:8443`. In this example, the URL is `https://3.135.190.255:8443`. You will need to trust the certificate in your browser.
 
 ### Scale the frontend service
 

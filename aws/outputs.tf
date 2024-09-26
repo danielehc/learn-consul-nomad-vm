@@ -29,9 +29,10 @@ output "Nomad_UI" {
 
 output "Nomad_UI_token" {
   value = random_uuid.nomad_mgmt_token.result
-  # sensitive = true
+  sensitive = true
 }
 
 output "Consul_UI_token" {
   value = random_uuid.consul_mgmt_token.result
+  sensitive = true
 }
