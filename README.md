@@ -199,9 +199,9 @@ Stop the deployment when you are ready to move on. The [`-purge` flag](https://d
 nomad job stop -purge hashicups
 ```
 
-## 4. Deploy HashiCups with Consul service discovery and DNS
+## 4. Deploy HashiCups with Consul service discovery on a single VM
 
-This jobspec integrates Consul and uses service discovery and DNS to facilitate communication between the microservices.
+This jobspec integrates Consul and uses service discovery and DNS to facilitate communication between the microservices but runs all of the services on a single node.
 
 Submit the job to Nomad.
 
@@ -219,7 +219,29 @@ Stop the deployment when you are ready to move on.
 nomad job stop -purge hashicups
 ```
 
-## 5. Deploy HashiCups with service mesh and API gateway
+## 5. Deploy HashiCups with Consul service discovery on multiple VMs
+
+This jobspec separates the services into their own task groups and allows them to run on different nodes.
+
+Submit the job to Nomad.
+
+```
+nomad job run ../shared/jobs/03.hashicups.nomad.hcl
+```
+
+Open the Consul UI and navigate to the **Services** page to see that each microservice is now registered in Consul with health checks.
+
+Click on the **nginx** service and then click on the instance name to view the instance details page. Copy the public hostname in the top right corner of the page and open it in your browser to see the application.
+
+Open the Nomad UI and navigate to the **Topology** page from the left navigation to see that the NGINX service is running on a different node than the other services.
+
+Stop the deployment when you are ready to move on.
+
+```
+nomad job stop -purge hashicups
+```
+
+## 6. Deploy HashiCups with service mesh and API gateway
 
 This jobspec further integrates Consul by using service mesh and API gateway. Services use `localhost` and the Envoy proxy to enable mutual TLS and upstream service configurations for better security. The API gateway allows external access to the NGINX service.
 
@@ -232,13 +254,13 @@ cd ../shared/jobs
 Set up the API gateway configurations in Consul.
 
 ```
-./03.api-gateway.config.sh
+./04.api-gateway.config.sh
 ```
 
 Set up the service intentions in Consul to allow the necessary services to communicate with each other.
 
 ```
-./03.intentions.consul.sh
+./04.intentions.consul.sh
 ```
 
 Change to the `aws` directory.
@@ -250,13 +272,13 @@ cd ../../aws
 Submit the API gateway job to Nomad.
 
 ```
-nomad job run ../shared/jobs/03.api-gateway.nomad.hcl
+nomad job run ../shared/jobs/04.api-gateway.nomad.hcl
 ```
 
 Submit the HashiCups job to Nomad.
 
 ```
-nomad job run ../shared/jobs/03.hashicups.nomad.hcl
+nomad job run ../shared/jobs/04.hashicups.nomad.hcl
 ```
 
 Open the Consul UI and navigate to the **Services** page to see that each microservice and the API gateway service are registered in Consul.
@@ -294,7 +316,7 @@ Stop the deployment when you are ready to move on.
 nomad job stop -purge hashicups
 ```
 
-## 6. Scale the HashiCups application
+## 7. Scale the HashiCups application
 
 This jobspec is the same as the API gateway version with the addition of the `scaling` block. This block instructs the Nomad Autoscaler to scale the frontend service up and down based on traffic load.
 
@@ -311,7 +333,7 @@ cd ../shared/jobs
 Run the autoscaler configuration script.
 
 ```
-./04.autoscaler.config.sh 
+./05.autoscaler.config.sh 
 ```
 
 Change back to the `aws` directory.
@@ -323,13 +345,13 @@ cd ../../aws
 Submit the autoscaler job to Nomad.
 
 ```
-nomad job run ../shared/jobs/04.autoscaler.nomad.hcl
+nomad job run ../shared/jobs/05.autoscaler.nomad.hcl
 ```
 
 Submit the HashiCups job to Nomad.
 
 ```
-nomad job run ../shared/jobs/04.hashicups.nomad.hcl
+nomad job run ../shared/jobs/05.hashicups.nomad.hcl
 ```
 
 ### View the HashiCups application
@@ -380,7 +402,7 @@ Open up the terminal session from where you submitted the jobs and stop the depl
 nomad job stop -purge hashicups
 ```
 
-## 7. Cleanup
+## 8. Cleanup
 
 ### Clean up jobs
 
@@ -441,25 +463,27 @@ aws ec2 delete-snapshot --snapshot-id snap-1234567890abcdef0
 - Translation of fictional Docker Compose file to Nomad jobspec
 
 #### [02.hashicups.nomad.hcl](shared/jobs/02.hashicups.nomad.hcl)
-- Separates tasks into groups
 - Adds [`service` blocks](https://developer.hashicorp.com/nomad/docs/job-specification/service) with `provider="consul"` and [health checks](https://developer.hashicorp.com/nomad/docs/job-specification/check)
 - Uses Consul DNS and static ports
-- Uses [client node constraints](https://developer.hashicorp.com/nomad/docs/job-specification/constraint)
 
 #### [03.hashicups.nomad.hcl](shared/jobs/03.hashicups.nomad.hcl)
+- Separates tasks into different groups
+- Uses [client node constraints](https://developer.hashicorp.com/nomad/docs/job-specification/constraint)
+
+#### [04.hashicups.nomad.hcl](shared/jobs/04.hashicups.nomad.hcl)
 - Uses Consul service mesh
 - Defines [service upstreams](https://developer.hashicorp.com/nomad/docs/job-specification/upstreams) and mapped service ports
 - Uses `localhost` and [Envoy proxy](https://developer.hashicorp.com/consul/docs/connect/proxies/envoy) instead of DNS for service communication
 
-#### [04.hashicups.nomad.hcl](shared/jobs/04.hashicups.nomad.hcl)
+#### [05.hashicups.nomad.hcl](shared/jobs/05.hashicups.nomad.hcl)
 - Adds `scaling` block to the frontend service for [horizontal application autoscaling](https://developer.hashicorp.com/nomad/tools/autoscaling#horizontal-application-autoscaling)
 
 ### Other jobspec files
 
-#### [03.api-gateway.nomad.hcl](shared/jobs/03.api-gateway.nomad.hcl)
+#### [04.api-gateway.nomad.hcl](shared/jobs/04.api-gateway.nomad.hcl)
 - Runs the [API gateway](https://developer.hashicorp.com/consul/docs/connect/gateways/api-gateway) on port `8443`
 - Constrains the job to a public client node
 
-#### [04.autoscaler.nomad.hcl](shared/jobs/04.autoscaler.nomad.hcl)
+#### [05.autoscaler.nomad.hcl](shared/jobs/05.autoscaler.nomad.hcl)
 - Runs the [Nomad Autoscaler agent](https://developer.hashicorp.com/nomad/tools/autoscaling/agent)
 - Uses the [Nomad APM plugin](https://developer.hashicorp.com/nomad/tools/autoscaling/plugins/apm/nomad)

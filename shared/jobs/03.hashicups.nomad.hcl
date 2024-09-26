@@ -102,30 +102,29 @@ job "hashicups" {
     count = 1
 
     network {
-      mode = "bridge"
+      port "db" {
+        static = var.db_port
+      }
+      dns {
+      	servers = ["172.17.0.1"] 
+      }
     }
-    
     service {
-      name = "database"
-      provider = "consul"
-      port = "${var.db_port}"
-      address  = attr.unique.platform.aws.local-ipv4
-      
-      connect {
-        sidecar_service {}
+        name = "database"
+        provider = "consul"
+        port = "db"
+        address  = attr.unique.platform.aws.local-ipv4
+        check {
+          name      = "Database ready"
+          type      = "script"
+          command   = "/usr/bin/pg_isready"
+          args      = ["-d", "${var.db_port}"]
+          interval  = "5s"
+          timeout   = "2s"
+          on_update = "ignore_warnings"
+          task      = "db"
+        }
       }
-      
-      check {
-        name      = "Database ready"
-        type      = "script"
-        command   = "/usr/bin/pg_isready"
-        args      = ["-d", "${var.db_port}"]
-        interval  = "5s"
-        timeout   = "2s"
-        on_update = "ignore_warnings"
-        task      = "db"
-      }
-    }
     
     # --------------------------------------------------------------------------
     #  Task "Database"
@@ -138,13 +137,13 @@ job "hashicups" {
         operator  = "!="
         value     = "ingress"
       }
-      
+
       meta {
         service = "database"
       }
       config {
         image   = "hashicorpdemoapp/product-api-db:${var.product_api_db_version}"
-        ports = ["${var.db_port}"]
+        ports = ["db"]
       }
       env {
         POSTGRES_DB       = "products"
@@ -163,45 +162,36 @@ job "hashicups" {
     count = 1
 
     network {
-      mode = "bridge"
+      port "product-api" {
+        static = var.product_api_port
+      }
+      dns {
+      	servers = ["172.17.0.1"] 
+      }
     }
-    
     service {
-      name = "product-api"
-      provider = "consul"
-      port = "${var.product_api_port}"
+        name = "product-api"
+        provider = "consul"
+        port = "product-api"
+        address  = attr.unique.platform.aws.local-ipv4
+        # DB connectivity check 
+        check {
+          name        = "DB connection ready"
+					type      = "http" 
+          path      = "/health/readyz" 
+					interval  = "5s"
+					timeout   = "5s"
+        }
 
-      connect {
-        sidecar_service {
-          proxy {
-            upstreams {
-              destination_name = "database"
-              local_bind_port = 5432
-            }
-          }
+        # Server ready check
+        check {
+          name        = "Product API ready"
+          type      = "http" 
+          path      = "/health/livez" 
+          interval  = "5s"
+          timeout   = "5s"
         }
       }
-
-      # DB connectivity check 
-      check {
-        name        = "DB connection ready"
-        address_mode = "alloc"
-        type      = "http" 
-        path      = "/health/readyz" 
-        interval  = "5s"
-        timeout   = "5s"
-      }
-
-      # Server ready check
-      check {
-        name        = "Product API ready"
-        address_mode = "alloc"
-        type      = "http" 
-        path      = "/health/livez" 
-        interval  = "5s"
-        timeout   = "5s"
-      }
-    }
     
     # --------------------------------------------------------------------------
     #  Task "Product API"
@@ -214,16 +204,16 @@ job "hashicups" {
         operator  = "!="
         value     = "ingress"
       }
-      
+
       meta {
         service = "product-api"
       }
       config {
         image   = "hashicorpdemoapp/product-api:${var.product_api_version}"
-        ports = ["${var.product_api_port}"]
+        ports = ["product-api"]
       }
       env {
-        DB_CONNECTION = "host=127.0.0.1 port=${var.db_port} user=${var.postgres_user} password=${var.postgres_password} dbname=${var.postgres_db} sslmode=disable"
+        DB_CONNECTION = "host=database.service.dc1.global port=${var.db_port} user=${var.postgres_user} password=${var.postgres_password} dbname=${var.postgres_db} sslmode=disable"
         BIND_ADDRESS = ":${var.product_api_port}"
       }
     }
@@ -238,28 +228,28 @@ job "hashicups" {
     count = 1
 
     network {
-      mode = "bridge"
+      port "payments-api" {
+        static = var.payments_api_port
+      }
+      dns {
+      	servers = ["172.17.0.1"] 
+      }
     }
 
     service {
-      name = "payments-api"
-      provider = "consul"
-      port = "${var.payments_api_port}"
-
-      connect {
-        sidecar_service {}
+        name = "payments-api"
+        provider = "consul"
+        port = "payments-api"
+        address  = attr.unique.platform.aws.local-ipv4
+        check {
+          name      = "Payments API ready"
+					type      = "http"
+          path			= "/actuator/health"
+					interval  = "5s"
+					timeout   = "5s"
+        }
       }
-
-      check {
-        name      = "Payments API ready"
-        address_mode = "alloc"
-        type      = "http"
-        path			= "/actuator/health"
-        interval  = "5s"
-        timeout   = "5s"
-      }
-    }
-
+    
     # --------------------------------------------------------------------------
     #  Task "Payments API"
     # --------------------------------------------------------------------------
@@ -271,14 +261,14 @@ job "hashicups" {
         operator  = "!="
         value     = "ingress"
       }
-      
+
       meta {
         service = "payments-api"
       }
-
+      
       config {
         image   = "hashicorpdemoapp/payments:${var.payments_version}"
-        ports = ["${var.payments_api_port}"]
+        ports = ["payments-api"]
         mount {
           type   = "bind"
           source = "local/application.properties"
@@ -304,38 +294,26 @@ job "hashicups" {
     count = 1
 
     network {
-      mode = "bridge"
+      port "public-api" {
+        static = var.public_api_port
+      }
+      dns {
+      	servers = ["172.17.0.1"] 
+      }
     }
-    
     service {
-      name = "public-api"
-      provider = "consul"
-      port = "${var.public_api_port}"
-
-      connect {
-        sidecar_service {
-          proxy {
-            upstreams {
-              destination_name = "product-api"
-              local_bind_port = 9090
-            }
-            upstreams {
-              destination_name = "payments-api"
-              local_bind_port = 8080
-            }
-          }
+        name = "public-api"
+        provider = "consul"
+        port = "public-api"
+        address  = attr.unique.platform.aws.local-ipv4
+        check {
+          name      = "Public API ready"
+					type      = "http"
+          path			= "/health"
+					interval  = "5s"
+					timeout   = "5s"
         }
       }
-
-      check {
-        name      = "Public API ready"
-        address_mode = "alloc"
-        type      = "http"
-        path			= "/health"
-        interval  = "5s"
-        timeout   = "5s"
-      }
-    }
 
     # --------------------------------------------------------------------------
     #  Task "Public API"
@@ -348,18 +326,18 @@ job "hashicups" {
         operator  = "!="
         value     = "ingress"
       }
-      
+
       meta {
         service = "public-api"
       }
       config {
         image   = "hashicorpdemoapp/public-api:${var.public_api_version}"
-        ports = ["${var.public_api_port}"] 
+        ports = ["public-api"] 
       }
       env {
         BIND_ADDRESS = ":${var.public_api_port}"
-        PRODUCT_API_URI = "http://127.0.0.1:${var.product_api_port}"
-        PAYMENT_API_URI = "http://127.0.0.1:${var.payments_api_port}"
+        PRODUCT_API_URI = "http://product-api.service.dc1.global:${var.product_api_port}"
+        PAYMENT_API_URI = "http://payments-api.service.dc1.global:${var.payments_api_port}"
       }
     }
   }
@@ -373,27 +351,26 @@ job "hashicups" {
     count = 1
 
     network {
-      mode = "bridge"
-    }
-    
-    service {
-      name = "frontend"
-      provider = "consul"
-      port = "${var.frontend_port}"
-
-      connect {
-        sidecar_service {}
+      port "frontend" {
+        static = var.frontend_port
       }
-
+      dns {
+      	servers = ["172.17.0.1"] 
+      }
+    }
+    service {
+        name = "frontend"
+        provider = "consul"
+        port = "frontend"
+        address  = attr.unique.platform.aws.local-ipv4
         check {
           name      = "Frontend ready"
-          address_mode = "alloc"
 					type      = "http"
           path      = "/"
-				  interval  = "5s"
+					interval  = "5s"
 					timeout   = "5s"
         }
-    }
+      }
     
     # --------------------------------------------------------------------------
     #  Task "Frontend"
@@ -406,22 +383,22 @@ job "hashicups" {
         operator  = "!="
         value     = "ingress"
       }
-      
+
       meta {
         service = "frontend"
       }
       config {
         image   = "hashicorpdemoapp/frontend:${var.frontend_version}"
-        ports = ["${var.frontend_port}"]
+        ports = ["frontend"]
       }
       env {
         NEXT_PUBLIC_PUBLIC_API_URL= "/"
-        NEXT_PUBLIC_FOOTER_FLAG="HashiCups instance ${NOMAD_ALLOC_INDEX}"
+        NEXT_PUBLIC_FOOTER_FLAG="Frontend instance ${NOMAD_ALLOC_INDEX}"
         PORT="${var.frontend_port}"
       }
     }
   }
-
+  
   ## ---------------------------------------------------------------------------
   ##  Group "NGINX"
   ## ---------------------------------------------------------------------------
@@ -431,38 +408,26 @@ job "hashicups" {
     count = 1
 
     network {
-      mode = "bridge"
+      port "nginx" {
+        static = var.nginx_port
+      }
+      dns {
+      	servers = ["172.17.0.1"] 
+      }
     }
-
     service {
-      name = "nginx"
-      provider = "consul"
-      port = "${var.nginx_port}"
-
-      connect {
-        sidecar_service {
-          proxy {
-            upstreams {
-              destination_name = "public-api"
-              local_bind_port = 8081
-            }
-            upstreams {
-              destination_name = "frontend"
-              local_bind_port = 3000
-            }
-          }
+        name = "nginx"
+        provider = "consul"
+        port = "nginx"
+        address  = attr.unique.platform.aws.public-hostname
+        check {
+          name      = "NGINX ready"
+					type      = "http"
+          path			= "/health"
+					interval  = "5s"
+					timeout   = "5s"
         }
       }
-
-      check {
-        name      = "NGINX ready"
-        address_mode = "alloc"
-        type      = "http"
-        path			= "/health"
-        interval  = "5s"
-        timeout   = "5s"
-      }
-    }
 
     # --------------------------------------------------------------------------
     #  Task "NGINX"
@@ -472,7 +437,7 @@ job "hashicups" {
       driver = "docker"
       constraint {
         attribute = "${meta.nodeRole}"
-        operator  = "!="
+        operator  = "="
         value     = "ingress"
       }
       meta {
@@ -491,11 +456,11 @@ job "hashicups" {
         data =  <<EOF
           proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=STATIC:10m inactive=7d use_temp_path=off;
           upstream frontend_upstream {
-              server 127.0.0.1:${var.frontend_port};
+              server frontend.service.dc1.global:${var.frontend_port};
           }
           server {
             listen ${var.nginx_port};
-            server_name "";
+            server_name {{ env "NOMAD_IP_nginx" }};
             server_tokens off;
             gzip on;
             gzip_proxied any;
@@ -510,7 +475,7 @@ job "hashicups" {
               proxy_pass http://frontend_upstream;
             }
             location /api {
-              proxy_pass http://127.0.0.1:${var.public_api_port};
+              proxy_pass http://public-api.service.dc1.global:${var.public_api_port};
             }
             location = /health {
               access_log off;
