@@ -161,10 +161,16 @@ nomad server members
 
 HashiCups represents a monolithic application that has been broken apart into separate services and configured to run with Docker Compose. The initial version is a translation of the fictional Docker Compose file to a Nomad jobspec.
 
-Submit the initial jobspec to Nomad. Note that you must submit the job from the `aws` directory as the `NOMAD_CACERT` variable references the `certs` directory here.
+Change to the `jobs` directory.
 
 ```
-nomad job run ../shared/jobs/01.hashicups.nomad.hcl
+cd ../shared/jobs
+```
+
+Submit the job to Nomad.
+
+```
+nomad job run 01.hashicups.nomad.hcl
 ```
 
 View the application by navigating to the public IP address of the NGINX service endpoint. This compound command finds the node on which the `hashicups` allocation is running (`nomad job allocs`) and uses the ID of the found node to retrieve the public IP address of the node (`nomad node status`). It then formats the output with the HTTP protocol.
@@ -197,7 +203,7 @@ This jobspec integrates Consul and uses service discovery and DNS to facilitate 
 Submit the job to Nomad.
 
 ```
-nomad job run ../shared/jobs/02.hashicups.nomad.hcl
+nomad job run 02.hashicups.nomad.hcl
 ```
 
 Open the Consul UI and navigate to the **Services** page to see that each microservice is now registered in Consul with health checks.
@@ -217,7 +223,7 @@ This jobspec separates the services into their own task groups and allows them t
 Submit the job to Nomad.
 
 ```
-nomad job run ../shared/jobs/03.hashicups.nomad.hcl
+nomad job run 03.hashicups.nomad.hcl
 ```
 
 Open the Consul UI and navigate to the **Services** page to see that each microservice is now registered in Consul with health checks.
@@ -236,12 +242,6 @@ nomad job stop -purge hashicups
 
 This jobspec further integrates Consul by using service mesh and API gateway. Services use `localhost` and the Envoy proxy to enable mutual TLS and upstream service configurations for better security. The API gateway allows external access to the NGINX service.
 
-Change to the `jobs` directory.
-
-```
-cd ../shared/jobs
-```
-
 Set up the API gateway configurations in Consul.
 
 ```
@@ -254,22 +254,16 @@ Set up the service intentions in Consul to allow the necessary services to commu
 ./04.intentions.consul.sh
 ```
 
-Change to the `aws` directory.
-
-```
-cd ../../aws
-```
-
 Submit the API gateway job to Nomad.
 
 ```
-nomad job run ../shared/jobs/04.api-gateway.nomad.hcl
+nomad job run 04.api-gateway.nomad.hcl
 ```
 
 Submit the HashiCups job to Nomad.
 
 ```
-nomad job run ../shared/jobs/04.hashicups.nomad.hcl
+nomad job run 04.hashicups.nomad.hcl
 ```
 
 Open the Consul UI and navigate to the **Services** page to see that each microservice and the API gateway service are registered in Consul.
@@ -303,34 +297,22 @@ The Nomad Autoscaler is a separate service and is run here as a Nomad job.
 
 ### Set up the Nomad Autoscaler and submit the jobs
 
-Change to the `jobs` directory.
-
-```
-cd ../shared/jobs
-```
-
 Run the autoscaler configuration script.
 
 ```
 ./05.autoscaler.config.sh 
 ```
 
-Change back to the `aws` directory.
-
-```
-cd ../../aws
-```
-
 Submit the autoscaler job to Nomad.
 
 ```
-nomad job run ../shared/jobs/05.autoscaler.nomad.hcl
+nomad job run 05.autoscaler.nomad.hcl
 ```
 
 Submit the HashiCups job to Nomad.
 
 ```
-nomad job run ../shared/jobs/05.hashicups.nomad.hcl
+nomad job run 05.hashicups.nomad.hcl
 ```
 
 ### View the HashiCups application
@@ -388,7 +370,13 @@ nomad job stop -purge --namespace ingress api-gateway
 
 ### Destroy infrastructure
 
-From within the `aws` directory, run the script to unset local environment variables.
+Change to the `aws` directory.
+
+```
+cd ../../aws
+```
+
+Run the script to unset local environment variables.
 
 ```
 source ../shared/scripts/unset_env_variables.sh
